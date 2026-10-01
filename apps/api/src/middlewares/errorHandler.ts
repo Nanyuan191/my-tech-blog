@@ -66,10 +66,14 @@ export function notFoundHandler(req: Request, res: Response): void {
 
 /**
  * 统一响应格式
- * 约定所有接口的成功响应长这样：
- *   { "code": "OK", "data": {...} }
- * 失败响应：
- *   { "code": "NOT_FOUND", "message": "文章不存在" }
+ * 约定所有接口的响应分两种形态：
+ *
+ *   成功（HTTP 2xx）：
+ *     { "success": true, "data": {...} }
+ *     { "success": true, "data": [...], "pagination": {...} }   // 列表接口
+ *
+ *   失败（HTTP 4xx / 5xx）：
+ *     { "code": "NOT_FOUND", "message": "文章不存在" }
  *
  * 统一格式的价值：前端拦截器可以用一套逻辑处理所有响应，
  * 不用为每个接口单独写解析代码。
