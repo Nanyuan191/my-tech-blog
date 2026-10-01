@@ -1,0 +1,170 @@
+// Prisma Schema —— 数据模型定义
+// ============================================================
+// 这个文件是整个系统的"事实来源"：数据库表结构、关联关系都从这里生成。
+// 运行 `npm run prisma:migrate` 后，Prisma 会：
+//   1. 对比 schema 和数据库现状，生成 SQL 迁移文件（可提交到 Git，有版本记录）
+//   2. 执行迁移，把表建出来
+//   3. 重新生成 Prisma Client（带完整类型提示的查询 API）
+//
+// 数据模型设计说明（答辩会问的东西）：
+//   - 文章与标签是"多对多"，用中间表 ArticleTag 显式建模
+//     （Prisma 的隐式多对多不暴露中间表，做不了"按标签筛文章并带发布时间排序"这类查询）
+//   - 分类是一对多：一篇文章只属于一个分类，一个分类下有多篇文章
+//   - 评论表先建出来，S8 附加功能里用它做评论区
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// 用户：后台管理员 / 作者
+// 注意：这个系统是"个人博客"，注册接口不开放在公网，
+// 管理员账号由 seed 脚本写入，密码用 bcrypt 加盐哈希存储。
+// ------------------------------------------------------------
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(191)
+  username     String   @unique @db.VarChar(64)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  nickname     String?  @db.VarChar(64)
+  avatar       String?  @db.VarChar(512)
+
+  // 角色字段，为后续 RBAC 留口子。当前只有 ADMIN / EDITOR 两种
+  role         Role     @default(ADMIN)
+
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  articles     Article[]
+  comments     Comment[]
+
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+// ------------------------------------------------------------
+// 分类：一对一管理，数量少（技术/生活/随笔）
+// ------------------------------------------------------------
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @unique @db.VarChar(64)
+  slug        String    @unique @db.VarChar(64)
+  description String?   @db.VarChar(255)
+  sortOrder   Int       @default(0) @map("sort_order")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  articles    Article[]
+
+  @@map("categories")
+}
+
+// ------------------------------------------------------------
+// 标签：多对多，数量多（vue, docker, 性能优化...）
+// ------------------------------------------------------------
+model Tag {
+  id        Int          @id @default(autoincrement())
+  name      String       @unique @db.VarChar(64)
+  slug      String       @unique @db.VarChar(64)
+
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  articles  ArticleTag[]
+
+  @@map("tags")
+}
+
+// ------------------------------------------------------------
+// 文章：系统的核心表
+// ------------------------------------------------------------
+model Article {
+  id          Int         @id @default(autoincrement())
+  title       String      @db.VarChar(255)
+  slug        String      @unique @db.VarChar(255)
+  summary     String?     @db.VarChar(512)
+  content     String      @db.Text        // Markdown 原文，渲染在前端做
+  coverImage  String?     @map("cover_image") @db.VarChar(512)
+
+  status      ArticleStatus @default(DRAFT)
+  viewCount   Int         @default(0) @map("view_count")
+  isTop       Boolean     @default(false) @map("is_top")
+
+  publishedAt DateTime?   @map("published_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  authorId    Int         @map("author_id")
+  author      User        @relation(fields: [authorId], references: [id])
+
+  categoryId  Int?        @map("category_id")
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  tags        ArticleTag[]
+  comments    Comment[]
+
+  // 列表页最常用的查询：按状态筛选 + 按发布时间倒序
+  // 加这个复合索引，避免数据量上来后全表扫描
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@map("articles")
+}
+
+enum ArticleStatus {
+  DRAFT      // 草稿，后台可见，前台不可见
+  PUBLISHED  // 已发布
+  ARCHIVED   // 已归档
+}
+
+// ------------------------------------------------------------
+// 文章-标签 中间表（显式建模）
+// ------------------------------------------------------------
+model ArticleTag {
+  articleId Int      @map("article_id")
+  tagId     Int      @map("tag_id")
+
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tagId])
+  @@index([tagId])
+  @@map("article_tags")
+}
+
+// ------------------------------------------------------------
+// 评论：S8 附加功能使用
+// ------------------------------------------------------------
+model Comment {
+  id        Int             @id @default(autoincrement())
+  content   String          @db.Text
+  nickname  String          @db.VarChar(64)
+  email     String          @db.VarChar(191)
+  status    CommentStatus   @default(PENDING)
+  isAuthor  Boolean         @default(false) @map("is_author")
+
+  articleId Int             @map("article_id")
+  article   Article         @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  userId    Int?            @map("user_id")
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime        @default(now()) @map("created_at")
+
+  @@index([articleId, status])
+  @@map("comments")
+}
+
+enum CommentStatus {
+  PENDING   // 待审核
+  APPROVED  // 已通过
+  REJECTED  // 已拒绝
+}

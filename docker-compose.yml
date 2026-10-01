@@ -1,0 +1,123 @@
+# ============================================================
+# docker-compose.yml —— 一键拉起「前端 + 后端 + 数据库」
+# ============================================================
+# 加分项1 的核心交付物。答辩时这样演示：
+#   $ docker compose up -d --build
+#   $ docker compose ps
+#   → 三个容器全部 Up，浏览器打开 http://localhost:8080 就能看到博客
+#
+# 三个服务的关系（数据流向）：
+#
+#   [浏览器]
+#      │  :8080
+#      ▼
+#   ┌─────────┐   静态资源直接返回
+#   │  web    │   /api/* 反向代理 ──┐
+#   │ (nginx) │                    │
+#   └─────────┘                    ▼
+#                            ┌──────────┐
+#                            │   api    │  :3000
+#                            │ (node)   │
+#                            └────┬─────┘
+#                                 │ mysql://db:3306
+#                                 ▼
+#                            ┌──────────┐
+#                            │    db    │
+#                            │ (mysql8) │
+#                            └──────────┘
+#
+# 关键设计：只有 web 暴露端口到宿主机，api 和 db 只在内部网络可见。
+# 这是"最小暴露面"原则——数据库绝不直接对公网开放。
+
+services:
+  # ----------------------------------------------------------
+  # 数据库：MySQL 8.0
+  # ----------------------------------------------------------
+  db:
+    image: mysql:8.0
+    container_name: blog-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_pass_2026}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-blog}
+      MYSQL_USER: ${MYSQL_USER:-blog}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-blog_pass_2026}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      # 默认 mysql8 的认证插件是 caching_sha2_password，
+      # 某些老客户端连不上，改成 mysql_native_password 兼容性更好
+      - --default-authentication-plugin=mysql_native_password
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - blog-net
+    healthcheck:
+      # 用 mysqladmin ping 判断真实可用性（容器 running ≠ 数据库 ready，
+      # mysql 初始化要十几秒，api 必须等它真正能响应）
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-root_pass_2026}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  # ----------------------------------------------------------
+  # 后端：Node + Express + Prisma
+  # ----------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: blog-api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # 注意 host 是 db —— 这是 compose 内部 DNS，服务名即主机名
+      DATABASE_URL: mysql://${MYSQL_USER:-blog}:${MYSQL_PASSWORD:-blog_pass_2026}@db:3306/${MYSQL_DATABASE:-blog}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_ACCESS_EXPIRES: 2h
+      JWT_REFRESH_EXPIRES: 7d
+      LOG_FORMAT: combined
+    depends_on:
+      db:
+        # 等 healthcheck 通过才启动，否则 api 会因为连不上库而启动失败
+        condition: service_healthy
+    networks:
+      - blog-net
+    # 容器自身的存活探针，配合 restart 策略实现自愈
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ----------------------------------------------------------
+  # 前端：Vue 构建产物 + Nginx 静态托管 & 反向代理
+  # ----------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: blog-web
+    restart: unless-stopped
+    ports:
+      # 宿主机 8080 → 容器 80
+      # 用 8080 而不是 80，是为了避开运营商对 80/443 端口的拦截和备案要求，
+      # 让服务在"未备案"状态下也能当天上线（这一点写进技术选型说明里）
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - blog-net
+
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  blog-net:
+    driver: bridge

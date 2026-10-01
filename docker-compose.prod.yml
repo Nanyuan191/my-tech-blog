@@ -1,0 +1,26 @@
+# ============================================================
+# docker-compose.prod.yml —— 生产环境覆盖配置
+# ============================================================
+# 用法（两个文件叠加，后面的覆盖前面的）：
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# 为什么要拆两个文件？这是 compose 的 overlay 模式，好处是：
+#   - docker-compose.yml 保持"本地开发也能用"（本地构建镜像）
+#   - 这个文件只在服务器上用，改成"从 GHCR 拉现成镜像"
+#   一套基础配置，两种使用场景，不用维护两份几乎相同的文件。
+#
+# 关键变化就一条：build: → image:
+#   本地开发：Docker 现场构建（改代码能立刻看到效果）
+#   生产环境：直接拉 CI 构建好的镜像（构建过程已在 Actions 里完成，
+#             服务器只需要拉取，几秒钟就好，也不占用服务器 CPU）
+
+services:
+  api:
+    image: ${IMAGE_PREFIX}/api:latest
+    # 关键：image 和 build 同时存在时，compose 仍会尝试构建。
+    # 这里用覆盖的方式把 build 置空，强制走拉取。
+    build: null
+
+  web:
+    image: ${IMAGE_PREFIX}/web:latest
+    build: null

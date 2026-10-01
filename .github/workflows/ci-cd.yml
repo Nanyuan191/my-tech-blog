@@ -1,0 +1,180 @@
+# ============================================================
+# GitHub Actions —— CI/CD 流水线（加分项2）
+# ============================================================
+# 触发时机：push 到 main 分支，或手动触发
+#
+# 三个阶段（job 之间用 needs 串成有向图）：
+#
+#   ┌──────────┐     ┌────────────────────┐     ┌──────────────┐
+#   │  lint &  │ ──▶ │ build-and-push     │ ──▶ │   deploy     │
+#   │  test    │     │ (构建并推送到 GHCR)│     │ (SSH 到服务器)│
+#   └──────────┘     └────────────────────┘     └──────────────┘
+#
+# 设计要点（答辩会问）：
+#   1. 为什么镜像推到 GHCR 而不是 Docker Hub？
+#      GHCR（GitHub Container Registry）用仓库自带的 GITHUB_TOKEN 鉴权，
+#      不需要额外配置 Docker Hub 账号密码，密钥管理更简单。
+#      而且 ghcr.io 在国内的访问比 docker.io 稳定。
+#   2. 为什么前端后端是两个 image？
+#      它们是两个独立的构建产物（nginx 静态站 vs node 服务），
+#      生命周期不同，分开构建才能并行、也才能单独回滚。
+#   3. 为什么用 needs 串行而不是全并行？
+#      lint 不过就不该浪费资源去构建镜像 —— 快速失败原则。
+#   4. 缓存：type=gha 用 GitHub 的构建缓存，
+#      第二次构建时基础层直接命中缓存，时间从 4 分钟降到 1 分钟内。
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # 支持网页上手动点按钮触发
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
+jobs:
+  # ==========================================================
+  # 阶段1：代码质量检查
+  # ==========================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --no-fund
+
+      - name: 生成 Prisma Client
+        run: npx prisma generate --schema=apps/api/prisma/schema.prisma
+
+      - name: 后端类型检查
+        run: npx tsc --noEmit -p apps/api/tsconfig.json
+
+      - name: 后端 Lint
+        run: npm run lint --workspace=apps/api --if-present
+
+      - name: 前端 Lint
+        run: npm run lint --workspace=apps/web --if-present
+
+  # ==========================================================
+  # 阶段2：构建镜像并推送到 GHCR
+  # ==========================================================
+  build-and-push:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    needs: lint
+    # PR 只做检查不推镜像，避免污染 registry
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write # 推 GHCR 需要这个权限
+
+    strategy:
+      matrix:
+        include:
+          - name: api
+            dockerfile: apps/api/Dockerfile
+          - name: web
+            dockerfile: apps/web/Dockerfile
+
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 开启 Docker Buildx（支持多平台构建与缓存）
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 生成镜像标签与元数据
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.name }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 用 GitHub Actions 缓存后端镜像层，显著加速重复构建
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  # ==========================================================
+  # 阶段3：部署到腾讯云服务器
+  # ==========================================================
+  deploy:
+    name: Deploy to Server
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 上传 compose 文件到服务器
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          source: "docker-compose.yml,docker-compose.prod.yml"
+          target: "~/blog"
+
+      - name: SSH 执行部署
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/blog
+
+            # 把仓库地址写进环境，让 compose 知道从 GHCR 拉哪个镜像
+            export IMAGE_PREFIX=${{ env.REGISTRY }}/${{ github.repository }}
+
+            # 生成 .env（从 GitHub Secrets 注入，不落在 Git 里）
+            cat > .env <<'EOF'
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            WEB_PORT=8080
+            EOF
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+            # 拉最新镜像并滚动重启
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+
+            # 清理悬空镜像，避免磁盘被旧版本撑爆
+            docker image prune -f
+
+            echo "===== 部署完成，容器状态 ====="
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
