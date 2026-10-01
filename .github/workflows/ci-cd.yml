@@ -38,10 +38,13 @@ env:
 
 jobs:
   # ==========================================================
-  # 阶段1：代码质量检查
+  # 阶段1：代码质量门禁（TypeScript 类型检查）
+  # 说明：项目不使用 ESLint，类型检查就是质量门禁——
+  #       tsc/vue-tsc 能拦住未定义变量、类型不匹配等真 bug，
+  #       比 lint 规则更能防止"能跑但有毒"的代码进主分支。
   # ==========================================================
   lint:
-    name: Lint & Type Check
+    name: Type Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout 代码
@@ -59,14 +62,11 @@ jobs:
       - name: 生成 Prisma Client
         run: npx prisma generate --schema=apps/api/prisma/schema.prisma
 
-      - name: 后端类型检查
+      - name: 后端类型检查（tsc --noEmit）
         run: npx tsc --noEmit -p apps/api/tsconfig.json
 
-      - name: 后端 Lint
-        run: npm run lint --workspace=apps/api --if-present
-
-      - name: 前端 Lint
-        run: npm run lint --workspace=apps/web --if-present
+      - name: 前端类型检查（vue-tsc）
+        run: npx vue-tsc --noEmit -p apps/web/tsconfig.json
 
   # ==========================================================
   # 阶段2：构建镜像并推送到 GHCR
