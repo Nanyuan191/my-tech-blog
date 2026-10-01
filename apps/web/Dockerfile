@@ -9,6 +9,12 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# ---- 国内构建适配 ----
+# npm 官方源在国内经常超时 → 默认换成 npmmirror。
+# 想换回官方源：docker build --build-arg NPM_REGISTRY=https://registry.npmjs.org
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+RUN npm config set registry $NPM_REGISTRY
+
 COPY package.json package-lock.json* ./
 COPY apps/web/package.json ./apps/web/
 COPY apps/api/package.json ./apps/api/
