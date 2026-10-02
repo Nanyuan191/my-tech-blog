@@ -37,18 +37,24 @@
   --nav-accent: #409eff;
 
   /* ---- 装修层：背景、阴影、尺寸（2026-10-02 精修）---- */
-  /* 页面背景：两层极淡的径向渐变叠在白底上，做出"顶部有光"的感觉。
-     为什么用 CSS 渐变而不是背景图片：
-       ① 体积 0 KB，不用额外请求，也不会拖慢首屏
-       ② 深色模式只要换一组颜色，不用准备两张图
-       ③ 任何分辨率都不糊 */
+  /* 页面背景：点阵纹理 + 两层光斑，做出"顶光 + 技术感网格"的层次。
+     为什么要点阵（网格纹理）：
+       纯白背景太"平"，视觉上单调；点阵是最轻的"纹理"——
+       一个 24×24 的 SVG 平铺整个页面，总共不到 200 字节（不是一张图片文件）。
+       data:image/svg+xml,... 是把 SVG 直接写进 CSS 的写法，不产生额外请求。
+       注意：# 号在 url() 里必须写成 %23，否则整个 url 会解析失败。 */
+  --bg-grid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='1.5' cy='1.5' r='1.2' fill='%233a6fd8' fill-opacity='0.12'/%3E%3C/svg%3E");
   --page-bg-layer:
-    radial-gradient(1100px 520px at 50% -140px, #eaf3ff 0%, rgba(255, 255, 255, 0) 72%),
-    radial-gradient(820px 460px at 100% -60px, #f4eefc 0%, rgba(255, 255, 255, 0) 62%);
+    radial-gradient(1100px 520px at 50% -140px, #dfeeff 0%, rgba(255, 255, 255, 0) 70%),
+    radial-gradient(820px 460px at 100% -60px, #f0e6fc 0%, rgba(255, 255, 255, 0) 60%),
+    var(--bg-grid);
   --nav-bg-glass: rgba(255, 255, 255, 0.82); /* 半透明导航底色 + 毛玻璃 */
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --card-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.1);
-  --content-width: 820px; /* 正文与列表统一宽度：约 70~80 字符/行，最适合阅读 */
+  /* 阅读页（文章详情）宽度：一行 70~80 字符，是阅读舒适度的甜点值 */
+  --content-width: 760px;
+  /* 列表页（首页/后台）宽度：更宽，容纳"左图右文"卡片 */
+  --content-width-wide: 960px;
   --nav-height: 60px;
 }
 
@@ -74,10 +80,12 @@ html.dark {
   --nav-text-muted: #cfd3dc;
   --nav-accent: #409eff;
 
-  /* 深色版背景层：只在顶部留一点冷色微光，整体仍然压暗 */
+  /* 深色版背景层：光斑压暗 + 点阵换成极淡的白点（蓝点在黑底上看不见） */
+  --bg-grid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='1.5' cy='1.5' r='1.2' fill='%23ffffff' fill-opacity='0.06'/%3E%3C/svg%3E");
   --page-bg-layer:
     radial-gradient(1100px 520px at 50% -140px, #16243a 0%, rgba(0, 0, 0, 0) 72%),
-    radial-gradient(820px 460px at 100% -60px, #241a33 0%, rgba(0, 0, 0, 0) 62%);
+    radial-gradient(820px 460px at 100% -60px, #241a33 0%, rgba(0, 0, 0, 0) 62%),
+    var(--bg-grid);
   --nav-bg-glass: rgba(29, 30, 31, 0.82);
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
   --card-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.55);

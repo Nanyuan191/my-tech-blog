@@ -10,7 +10,26 @@
       变量没定义就用后面的默认色，定义了就自动跟随深色主题，不用回来改这个文件。
     -->
     <header class="navbar">
-      <router-link class="brand" to="/">我的技术博客</router-link>
+      <router-link class="brand" to="/">
+        <!--
+          Logo 是内联 SVG 而不是 <img>：
+          ① 不产生额外网络请求（HTML 里直接带着）
+          ② 矢量图任何缩放都不糊
+          ③ 颜色可以随时用 CSS 改（这里固定主题蓝）
+        -->
+        <svg class="brand-logo" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="14" fill="#409eff" />
+          <path
+            d="M25 21 14 32l11 11M39 21l11 11-11 11"
+            fill="none"
+            stroke="#fff"
+            stroke-width="5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        我的技术博客
+      </router-link>
 
       <nav class="links">
         <router-link class="link" to="/">首页</router-link>
@@ -38,6 +57,15 @@
     <main class="main">
       <router-view />
     </main>
+
+    <!--
+      页脚：技术栈写进页脚是"内容型网站"的惯例——
+      访客（和答辩老师）不用翻代码就能一眼看到你用了什么。
+    -->
+    <footer class="footer">
+      <p>© 2026 我的技术博客 · Vue 3 + Express + MySQL + Docker</p>
+      <p>CI/CD by GitHub Actions · 部署于腾讯云轻量应用服务器</p>
+    </footer>
 
     <!-- 回到顶部：滚动超过一屏才出现，避免一进页面就挡视线 -->
     <transition name="fade">
@@ -132,6 +160,16 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
   font-weight: 600;
   color: var(--nav-text, #303133);
   text-decoration: none;
+  /* inline-flex 让 logo 和文字垂直居中对齐 */
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.brand-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: block;
 }
 .links {
   display: flex;
@@ -181,8 +219,21 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
   color: var(--nav-accent, #409eff);
 }
 .main {
-  /* 减去导航栏高度，保证内容区至少铺满一屏 */
+  /* 减去导航栏高度，保证内容区至少铺满一屏（footer 需要配合 flex 布局沉底） */
   min-height: calc(100vh - var(--nav-height, 60px));
+}
+
+/* ---- 页脚：内容少时它自然贴在内容下面；内容长时被推到最底 ---- */
+.footer {
+  padding: 26px 20px 34px;
+  text-align: center;
+  border-top: 1px solid var(--nav-border, #ebeef5);
+  color: var(--text-muted, #909399);
+  font-size: 12.5px;
+  line-height: 2;
+}
+.footer p {
+  margin: 0;
 }
 
 /* ---- 回到顶部 ---- */
