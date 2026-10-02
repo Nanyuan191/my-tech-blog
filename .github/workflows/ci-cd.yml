@@ -157,7 +157,9 @@ jobs:
             cd ~/blog
 
             # 把仓库地址写进环境，让 compose 知道从 GHCR 拉哪个镜像
-            export IMAGE_PREFIX=${{ env.REGISTRY }}/${{ github.repository }}
+            # ⚠️ GHCR 镜像名强制全小写：GITHUB_REPOSITORY 含大写（如 Nanyuan191），
+            #    用 bash 的 ${VAR,,} 原地转小写，否则 pull 报 invalid reference format
+            export IMAGE_PREFIX="${{ env.REGISTRY }}/${GITHUB_REPOSITORY,,}"
 
             # 生成 .env（从 GitHub Secrets 注入，不落在 Git 里）
             cat > .env <<'EOF'
