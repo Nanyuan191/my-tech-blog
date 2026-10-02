@@ -1,0 +1,75 @@
+/* ============================================================
+ * 主题变量表 —— 深色模式全靠这一个文件
+ *
+ * 原理：<html> 标签上有没有 dark 这个 class，决定用哪一套值。
+ *   - 没有 dark → 用 :root 里那一套（浅色）
+ *   - 有   dark → 用 html.dark 里那一套（深色）
+ *
+ * 所有页面样式都写成 var(--xxx)，所以"切换主题"不需要改任何页面文件。
+ * 这是 Element Plus 官方推荐的深色模式做法。
+ * ============================================================ */
+
+:root {
+  /* 底色 */
+  --bg-page: #ffffff;      /* 页面底色 */
+  --bg-subtle: #f5f7fa;    /* 次级底色（登录页那种灰底） */
+  --bg-card: #ffffff;      /* 卡片 / 面板底色 */
+
+  /* 文字 */
+  --text-main: #1a1a1a;    /* 标题、重点 */
+  --text-body: #555555;    /* 正文 */
+  --text-muted: #909399;   /* 次要信息（时间、阅读数、提示） */
+
+  /* 线条与强调色 */
+  --border-soft: #ebeef5;
+  --accent: #409eff;       /* 主题蓝：链接、按钮、悬停 */
+  --accent-soft: #ecf5ff;  /* 主题蓝的淡底（标签背景） */
+
+  /* 行内代码（正文里的 `code`） */
+  --code-inline-bg: #f0f0f0;
+  --code-inline-text: #c7254e;
+
+  /* 导航栏专用（App.vue 引用的是这组） */
+  --nav-bg: #ffffff;
+  --nav-border: #ebeef5;
+  --nav-text: #303133;
+  --nav-text-muted: #606266;
+  --nav-accent: #409eff;
+}
+
+html.dark {
+  --bg-page: #141414;
+  --bg-subtle: #0f0f0f;
+  --bg-card: #1d1e1f;
+
+  --text-main: #e5eaf3;
+  --text-body: #cfd3dc;
+  --text-muted: #a3a6ad;
+
+  --border-soft: #363637;
+  --accent: #409eff;
+  --accent-soft: #1c2b3a;
+
+  --code-inline-bg: #2b2b2b;
+  --code-inline-text: #e06c75;
+
+  --nav-bg: #1d1e1f;
+  --nav-border: #363637;
+  --nav-text: #e5eaf3;
+  --nav-text-muted: #cfd3dc;
+  --nav-accent: #409eff;
+}
+
+/* 页面整体底色与文字色：写在 html/body 上，所有路由页面自动继承 */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-page);
+  color: var(--text-main);
+}
+
+/* 切换主题时给个 0.25 秒过渡，避免颜色"啪"地跳变 */
+body {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}

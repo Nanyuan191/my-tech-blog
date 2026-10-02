@@ -4,7 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="个人技术博客 —— 记录开发过程中的思考与实践" />
-    <title>技术博客</title>
+    <title>我的技术博客</title>
+    <!--
+      防「闪白」小脚本（FOUC = Flash Of Unstyled Content）：
+      Vue 的 JS 要等下载+执行完才会去设置主题，这中间会先闪一下浅色。
+      所以把「读 localStorage 并加 dark class」提到 head 里先跑一遍，
+      等 stores/theme.ts 启动时看到 class 已存在，视觉上就完全无跳变。
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('blog-theme');
+          var dark =
+            saved === 'dark' ||
+            (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) {
+          /* 隐私模式下 localStorage 可能不可用，忽略即可，退化成跟随系统 */
+        }
+      })();
+    </script>
   </head>
   <body>
     <!-- Vue 应用挂载点 -->

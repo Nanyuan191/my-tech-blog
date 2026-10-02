@@ -272,6 +272,6 @@ onMounted(async () => {
 }
 .who {
   margin-right: 12px;
-  color: #666;
+  color: var(--text-muted);
 }
 </style>

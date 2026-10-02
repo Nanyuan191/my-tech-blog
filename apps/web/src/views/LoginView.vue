@@ -28,7 +28,7 @@
         </el-button>
       </el-form>
 
-      <p class="tip">默认账号：admin / admin123456</p>
+      <p class="tip">仅站长可登录（后台管理用）</p>
       <p class="back"><router-link to="/">← 返回首页</router-link></p>
     </div>
   </div>
@@ -43,8 +43,9 @@ import { useAuthStore } from '@/stores/auth';
 const router = useRouter();
 const auth = useAuthStore();
 
-const username = ref('admin');
-const password = ref('admin123456');
+// ⚠️ 安全：账号密码不能预填在代码里（仓库是公开的，预填 = 门锁上插着钥匙）
+const username = ref('');
+const password = ref('');
 const loading = ref(false);
 
 async function handleLogin() {
@@ -68,17 +69,18 @@ async function handleLogin() {
 
 <style scoped>
 .login-wrap {
-  min-height: 100vh;
+  /* 减去导航栏高度，否则页面会多出一条滚动条 */
+  min-height: calc(100vh - 56px);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
+  background: var(--bg-subtle);
   font-family: system-ui, sans-serif;
 }
 .box {
   width: 340px;
   padding: 32px;
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
@@ -88,7 +90,7 @@ async function handleLogin() {
   font-size: 20px;
 }
 .tip {
-  color: #999;
+  color: var(--text-muted);
   font-size: 12px;
   text-align: center;
   margin: 16px 0 0;
@@ -99,6 +101,6 @@ async function handleLogin() {
   font-size: 13px;
 }
 .back a {
-  color: #409eff;
+  color: var(--accent);
 }
 </style>
