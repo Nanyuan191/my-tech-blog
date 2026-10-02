@@ -160,6 +160,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           envs: IMAGE_PREFIX # 通过 ssh-action 的 envs 机制把变量带到服务器
+          # 首次部署要从 GHCR 跨境拉约 1.4GB 镜像，默认 10 分钟命令超时不够用，
+          # 会被 ssh-action 掐断报错 → 放宽到 30 分钟
+          command_timeout: 30m
           script: |
             set -e
             cd ~/blog
