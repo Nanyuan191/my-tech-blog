@@ -181,8 +181,17 @@ jobs:
 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-            # 拉最新镜像并滚动重启
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+            # ---- 拉取应用镜像：优先走国内中转（ghcr.io 跨境拉取不稳定），失败自动回退官方源 ----
+            # 中转镜像内容与官方完全一致（同一 digest），只是换了条路进国内；
+            # 拉完后 tag 回官方名字，compose 才认得出来。
+            MIRROR_PREFIX="${IMAGE_PREFIX/ghcr.io/ghcr.m.daocloud.io}"
+            for svc in api web; do
+              echo "===== 拉取 ${svc} 镜像（先中转后官方）====="
+              docker pull "${MIRROR_PREFIX}/${svc}:latest" || docker pull "${IMAGE_PREFIX}/${svc}:latest"
+              docker tag "${MIRROR_PREFIX}/${svc}:latest" "${IMAGE_PREFIX}/${svc}:latest" || true
+            done
+
+            # ---- 启动：镜像已在本地，up 默认只拉缺失镜像，不会再触发跨境下载 ----
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 
             # 清理悬空镜像，避免磁盘被旧版本撑爆
@@ -190,3 +199,7 @@ jobs:
 
             echo "===== 部署完成，容器状态 ====="
             docker compose -f docker-compose.yml -f docker-compose.prod.yml ps
+
+            # ---- 服务器本地自检：不用等人工点网址，部署时就把结果打出来 ----
+            sleep 5
+            curl -s -o /dev/null -w "本地自检 HTTP=%{http_code}\n" http://127.0.0.1:8080/ || true
