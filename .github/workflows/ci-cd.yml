@@ -160,9 +160,9 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           envs: IMAGE_PREFIX # 通过 ssh-action 的 envs 机制把变量带到服务器
-          # 首次部署要从 GHCR 跨境拉约 1.4GB 镜像，默认 10 分钟命令超时不够用，
-          # 会被 ssh-action 掐断报错 → 放宽到 30 分钟
-          command_timeout: 30m
+          # 首次部署要跨境拉取约 1.4GB 镜像，实测 30 分钟仍不够（2026-10-02 Run7 超时），
+          # 且 docker pull 断点续传需要更多时间余量 → 放宽到 60 分钟
+          command_timeout: 60m
           script: |
             set -e
             cd ~/blog
@@ -181,14 +181,24 @@ jobs:
 
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-            # ---- 拉取应用镜像：优先走国内中转（ghcr.io 跨境拉取不稳定），失败自动回退官方源 ----
-            # 中转镜像内容与官方完全一致（同一 digest），只是换了条路进国内；
-            # 拉完后 tag 回官方名字，compose 才认得出来。
-            MIRROR_PREFIX="${IMAGE_PREFIX/ghcr.io/ghcr.m.daocloud.io}"
+            # ---- 拉取应用镜像：三通道接力（DaoCloud → 南京大学 → 官方源）+ 断点续传重试 ----
+            # 教训（2026-10-02 Run7）：单通道失败会静默回退，看不出走的哪条路；且单轮拉
+            # 不完就超时。docker pull 天生断点续传：中断后重跑，已下载的层不重复下载。
             for svc in api web; do
-              echo "===== 拉取 ${svc} 镜像（先中转后官方）====="
-              docker pull "${MIRROR_PREFIX}/${svc}:latest" || docker pull "${IMAGE_PREFIX}/${svc}:latest"
-              docker tag "${MIRROR_PREFIX}/${svc}:latest" "${IMAGE_PREFIX}/${svc}:latest" || true
+              ORIG="${IMAGE_PREFIX}/${svc}:latest"
+              M1="${IMAGE_PREFIX/ghcr.io/ghcr.m.daocloud.io}/${svc}:latest"
+              M2="${IMAGE_PREFIX/ghcr.io/ghcr.nju.edu.cn}/${svc}:latest"
+              echo "===== 拉取 ${svc} 镜像（三通道接力，最多 3 轮）====="
+              CH=""
+              for attempt in 1 2 3; do
+                if docker pull "$M1"; then CH="daocloud中转"; docker tag "$M1" "$ORIG" || true; break; fi
+                if docker pull "$M2"; then CH="nju中转";    docker tag "$M2" "$ORIG" || true; break; fi
+                if docker pull "$ORIG"; then CH="官方直连"; break; fi
+                echo "[$svc] 第 ${attempt} 轮三通道均失败，15 秒后续传重试"
+                sleep 15
+              done
+              if [ -z "$CH" ]; then echo "[$svc] 三轮全部失败，终止部署"; exit 1; fi
+              echo "[$svc] 拉取成功（通道：${CH}）"
             done
 
             # ---- 启动：镜像已在本地，up 默认只拉缺失镜像，不会再触发跨境下载 ----
