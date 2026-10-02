@@ -2,6 +2,7 @@ import { Router } from 'express';
 import * as articleController from '../controllers/article.controller';
 import { requireAuth, optionalAuth } from '../middlewares/auth';
 import { wrap } from '../middlewares/errorHandler';
+import { postCommentRouter } from './comment';
 
 /**
  * 文章路由
@@ -59,8 +60,12 @@ adminRouter.use(requireAuth); // 一行搞定：这个 router 下所有接口都
 adminRouter.get('/', wrap(articleController.adminList));
 adminRouter.patch('/:id/archive', wrap(articleController.toggleArchive));
 
-// 把两个 router 合成一个导出，在 app.ts 里只需挂载一次
+// 把几个 router 合成一个导出，在 app.ts 里只需挂载一次
 const articleRouter = Router();
+
+// 评论子资源：/posts/:slug/comments（两段式路径，与 /:slug 不冲突）
+// 放在 publicRouter 之前，语义上"更具体的路径优先"
+articleRouter.use('/', postCommentRouter);
 articleRouter.use('/admin', adminRouter);
 articleRouter.use('/', publicRouter);
 

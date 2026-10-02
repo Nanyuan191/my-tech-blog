@@ -33,19 +33,85 @@
         </button>
       </div>
 
+      <!-- ==================== 评论区 ==================== -->
+      <section class="comments">
+        <h2 class="comments-title">
+          评论 <span class="c-count">{{ commentTotal }}</span>
+        </h2>
+
+        <p v-if="commentsLoading && !comments.length" class="c-empty">加载中...</p>
+        <p v-else-if="!comments.length" class="c-empty">还没有评论，来说点什么吧～</p>
+
+        <ul v-else class="c-list">
+          <li v-for="c in comments" :key="c.id" class="c-item" :class="{ author: c.isAuthor }">
+            <div class="c-head">
+              <span class="c-name">{{ c.nickname }}</span>
+              <span v-if="c.isAuthor" class="c-badge">作者</span>
+              <span class="c-time">{{ formatTime(c.createdAt) }}</span>
+            </div>
+            <!-- ⚠️ 用插值 {{ }} 而不是 v-html：评论是纯文本，插值会做转义，
+                 游客写下 <script> 也只会原样显示成文字 —— 天然防 XSS -->
+            <p class="c-body">{{ c.content }}</p>
+          </li>
+        </ul>
+
+        <button
+          v-if="hasMoreComments"
+          type="button"
+          class="c-more"
+          :disabled="commentsLoading"
+          @click="loadMoreComments"
+        >
+          {{ commentsLoading ? '加载中...' : '加载更多评论' }}
+        </button>
+
+        <!-- 发表评论 -->
+        <div class="c-form">
+          <p class="c-form-title">
+            {{ isAuthorMode ? '以站长身份回复（直接显示）' : '发表评论' }}
+          </p>
+
+          <!-- 站长回复不需要填昵称邮箱：身份由 token 决定，服务端会回查数据库 -->
+          <div v-if="!isAuthorMode" class="c-row">
+            <input v-model="cForm.nickname" class="c-ipt" placeholder="昵称（必填）" maxlength="32" />
+            <input v-model="cForm.email" class="c-ipt" placeholder="邮箱（必填，不会公开）" maxlength="191" />
+          </div>
+
+          <textarea
+            v-model="cForm.content"
+            class="c-ta"
+            rows="4"
+            maxlength="1000"
+            placeholder="说点什么...（最多 1000 字）"
+          ></textarea>
+
+          <div class="c-foot">
+            <span class="c-hint">
+              {{ isAuthorMode ? '你的回复会立即公开' : '提交后需站长审核通过才会公开显示' }}
+            </span>
+            <button type="button" class="c-submit" :disabled="submitting" @click="handleSubmitComment">
+              {{ submitting ? '提交中...' : '提交' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
       <p class="back"><router-link to="/">← 返回首页</router-link></p>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, reactive, computed, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { fetchArticleBySlug, likePost, type Article } from '@/api/article';
+import { fetchComments, createComment, type Comment } from '@/api/comment';
 import { renderMarkdown } from '@/utils/markdown';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
+const auth = useAuthStore();
 
 const article = ref<(Article & { content?: string }) | null>(null);
 const loading = ref(true);
@@ -108,6 +174,107 @@ async function handleLike() {
   }
 }
 
+/* ==================== 评论区状态 ==================== */
+/**
+ * 评论的"身份"判断
+ * 登录了（= 站长）就以作者身份回复，后端也只认 token，不认前端传的昵称。
+ * 所以这里只是切换 UI 展示，安全性不依赖它 —— 真正的权限在后端。
+ */
+const isAuthorMode = computed(() => auth.isLoggedIn());
+
+const comments = ref<Comment[]>([]);
+const commentsLoading = ref(false);
+const commentTotal = ref(0);
+const commentTotalPages = ref(1);
+const commentPage = ref(1);
+const submitting = ref(false);
+
+const cForm = reactive({ nickname: '', email: '', content: '' });
+
+/** 还有没有下一页（后端返回的 totalPages 说了算） */
+const hasMoreComments = computed(() => commentPage.value < commentTotalPages.value);
+
+/** 一次拉 10 条，避免评论多了首屏被拖慢 */
+const COMMENT_PAGE_SIZE = 10;
+
+async function loadComments(slug: string, page = 1) {
+  commentsLoading.value = true;
+  try {
+    const res = await fetchComments(slug, { page, pageSize: COMMENT_PAGE_SIZE });
+    // 第 1 页是刷新（覆盖），后续页是追加
+    comments.value = page === 1 ? res.data : [...comments.value, ...res.data];
+    commentPage.value = res.pagination.page;
+    commentTotal.value = res.pagination.total;
+    commentTotalPages.value = res.pagination.totalPages;
+  } catch {
+    // 评论加载失败不该让整篇文章打不开 —— 静默降级，正文照常阅读
+  } finally {
+    commentsLoading.value = false;
+  }
+}
+
+function loadMoreComments() {
+  const slug = article.value?.slug;
+  if (slug) void loadComments(slug, commentPage.value + 1);
+}
+
+async function handleSubmitComment() {
+  const slug = article.value?.slug;
+  if (!slug || submitting.value) return;
+
+  if (!cForm.content.trim()) {
+    ElMessage.warning('评论内容不能为空');
+    return;
+  }
+  // 前端校验只是为了体验好；后端有同样的规则（Zod），那才是真正的闸门
+  if (!isAuthorMode.value) {
+    if (!cForm.nickname.trim()) {
+      ElMessage.warning('请填写昵称');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cForm.email.trim())) {
+      ElMessage.warning('请填写正确的邮箱');
+      return;
+    }
+  }
+
+  submitting.value = true;
+  try {
+    const res = await createComment(
+      slug,
+      {
+        content: cForm.content.trim(),
+        // 站长回复不带昵称/邮箱：后端按 token 里的 userId 回查数据库
+        ...(isAuthorMode.value
+          ? {}
+          : { nickname: cForm.nickname.trim(), email: cForm.email.trim() }),
+      },
+      auth.accessToken
+    );
+
+    cForm.content = '';
+    if (res.data.status === 'APPROVED') {
+      ElMessage.success('回复已发布');
+      await loadComments(slug, 1); // 立即刷新，能看到自己的回复
+    } else {
+      // 这里如实告诉游客"还没公开"，避免他刷半天以为没提交上
+      ElMessage.success('评论已提交，等站长审核通过后显示');
+    }
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '提交失败，稍后再试');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+/** 评论时间格式：2026-10-02 22:40 */
+function formatTime(value: string) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 /** .content 这个 div 的 DOM 引用（模板里 ref="contentEl" 对应这里） */
 const contentEl = ref<HTMLElement | null>(null);
 
@@ -124,11 +291,19 @@ function formatDate(value: string | null) {
 async function loadArticle(slug: string) {
   loading.value = true;
   error.value = '';
+  // 切文章时先清空上一批评论，否则会闪出旧文章的评论
+  comments.value = [];
+  commentTotal.value = 0;
+  commentPage.value = 1;
+  commentTotalPages.value = 1;
+
   try {
     const res = await fetchArticleBySlug(slug);
     article.value = res.data;
     // 换文章时要重新读一次"这篇我点过没"
     liked.value = readLiked(slug);
+    // 评论独立加载：它失败不影响正文（内部已 try/catch）
+    void loadComments(slug, 1);
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载失败';
   } finally {
@@ -376,6 +551,171 @@ watch(
   border-radius: 10px;
 }
 
+/* ==================== 评论区 ==================== */
+.comments {
+  margin-top: 46px;
+  padding-top: 26px;
+  border-top: 1px solid var(--border-soft);
+}
+.comments-title {
+  font-size: 18px;
+  margin: 0 0 18px;
+}
+.c-count {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+.c-empty {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 14px 0;
+}
+.c-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+}
+/* 每条评论：与上方导航栏同一套视觉语言（左侧细线 + 卡片底） */
+.c-item {
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  margin-bottom: 12px;
+}
+/* 站长自己的回复：换一条强调色左边框，一眼可辨 */
+.c-item.author {
+  border-left: 3px solid var(--accent);
+}
+.c-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.c-name {
+  font-weight: 600;
+  color: var(--text-main);
+}
+.c-badge {
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 4px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.c-time {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.c-body {
+  margin: 0;
+  color: var(--text-body);
+  font-size: 15px;
+  line-height: 1.75;
+  /* 保留游客输入里的换行，又不让长串英文/URL 撑破容器 */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.c-more {
+  display: block;
+  width: 100%;
+  padding: 9px 0;
+  margin-bottom: 18px;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--text-body);
+  background: transparent;
+  border: 1px dashed var(--border-soft);
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+.c-more:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.c-more:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ---- 发表评论表单 ---- */
+.c-form {
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+}
+.c-form-title {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+.c-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.c-ipt,
+.c-ta {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text-main);
+  background: var(--bg-page);
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  padding: 9px 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.c-ipt:focus,
+.c-ta:focus {
+  border-color: var(--accent);
+}
+.c-ta {
+  resize: vertical;
+  line-height: 1.7;
+}
+.c-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.c-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.c-submit {
+  flex: none;
+  font-family: inherit;
+  font-size: 14px;
+  padding: 8px 22px;
+  border-radius: 20px;
+  cursor: pointer;
+  color: #ffffff;
+  background: var(--accent);
+  border: none;
+  transition: opacity 0.2s;
+}
+.c-submit:hover:not(:disabled) {
+  opacity: 0.88;
+}
+.c-submit:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 /* ---- 点赞区 ---- */
 .actions {
   margin: 28px 0 8px;
@@ -454,6 +794,21 @@ watch(
   .content :deep(th),
   .content :deep(td) {
     padding: 6px 8px;
+  }
+  /* 昵称/邮箱两个输入框在窄屏改成上下排列，否则挤成两条细缝 */
+  .c-row {
+    flex-direction: column;
+  }
+  .c-form {
+    padding: 14px;
+  }
+  .c-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .c-submit {
+    width: 100%;
   }
 }
 </style>

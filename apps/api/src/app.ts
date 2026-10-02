@@ -32,11 +32,23 @@ import { env } from './config/env';
 import { healthRouter } from './routes/health';
 import { authRouter } from './routes/auth';
 import { articleRouter } from './routes/article';
+import { commentAdminRouter } from './routes/comment';
 import { categoryRouter, tagRouter } from './routes/taxonomy';
 import { notFoundHandler, errorHandler } from './middlewares/errorHandler';
 
 export function createApp(): express.Application {
   const app = express();
+
+  /**
+   * 信任第一层反向代理（生产环境的 Nginx）。
+   *
+   * 为什么必须设置？不设置时 req.ip 拿到的是 Nginx 容器的 IP ——
+   * 后果是所有访客在限流器眼里都是"同一个人"：
+   * 一个人刷 5 条评论，全站其他人就都被限流了。
+   * 设为 1 表示"只信任紧挨着我的那一层代理"，既拿到真实客户端 IP，
+   * 又不会被伪造的 X-Forwarded-For 骗到（设为 true 才是危险的）。
+   */
+  app.set('trust proxy', 1);
 
   // ---- 1. 安全响应头 ----
   // helmet 会设置一堆安全相关的 HTTP 头，比如 X-Content-Type-Options、
@@ -80,7 +92,8 @@ export function createApp(): express.Application {
   //   /api/*  → 后端服务
   app.use('/api/health', healthRouter);      // 存活探针
   app.use('/api/auth', authRouter);          // 登录 / 刷新 / 登出 / 当前用户
-  app.use('/api/posts', articleRouter);      // 文章（含 /admin 子路径）
+  app.use('/api/posts', articleRouter);      // 文章（含 /admin 子路径、/:slug/comments 评论子资源）
+  app.use('/api/comments', commentAdminRouter); // 评论审核（后台，全局视角）
   app.use('/api/categories', categoryRouter);// 分类
   app.use('/api/tags', tagRouter);           // 标签
 
