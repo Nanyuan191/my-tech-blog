@@ -17,10 +17,16 @@
 services:
   api:
     image: ${IMAGE_PREFIX}/api:latest
-    # 关键：image 和 build 同时存在时，compose 仍会尝试构建。
-    # 这里用覆盖的方式把 build 置空，强制走拉取。
-    build: null
+    # 关键：基础文件里有 build:，而 image 和 build 同时存在时，
+    # 如果本地找不到镜像，compose 会尝试现场构建 —— 服务器上只有两个
+    # compose 文件、没有源码，构建必然失败（no such file: apps/api/Dockerfile）。
+    #
+    # 覆盖手法有讲究：
+    #   build: null        ❌ 实测无效（compose 合并时 null 被当成"没写"，build 仍在）
+    #   build: !reset null ✅ 强制清空该字段（需 Compose ≥ 2.24）
+    # 已用 `docker compose config` 验证：合并后 build 段确实消失。
+    build: !reset null
 
   web:
     image: ${IMAGE_PREFIX}/web:latest
-    build: null
+    build: !reset null
