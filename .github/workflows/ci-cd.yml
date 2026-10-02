@@ -151,18 +151,22 @@ jobs:
 
       - name: SSH 执行部署
         uses: appleboy/ssh-action@v1.0.3
+        # IMAGE_PREFIX 在 runner 本地插值（服务器上没有 GITHUB_REPOSITORY，
+        # 直接在 script 里引用会展开成空串 → ghcr.io//api:latest → invalid reference format）
+        env:
+          IMAGE_PREFIX: ${{ env.REGISTRY }}/${{ github.repository }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: IMAGE_PREFIX # 通过 ssh-action 的 envs 机制把变量带到服务器
           script: |
             set -e
             cd ~/blog
 
-            # 把仓库地址写进环境，让 compose 知道从 GHCR 拉哪个镜像
             # ⚠️ GHCR 镜像名强制全小写：GITHUB_REPOSITORY 含大写（如 Nanyuan191），
-            #    用 bash 的 ${VAR,,} 原地转小写，否则 pull 报 invalid reference format
-            export IMAGE_PREFIX="${{ env.REGISTRY }}/${GITHUB_REPOSITORY,,}"
+            #    在服务器端用 bash 的 ${VAR,,} 原地转小写，否则 pull 报 invalid reference format
+            export IMAGE_PREFIX="${IMAGE_PREFIX,,}"
 
             # 生成 .env（从 GitHub Secrets 注入，不落在 Git 里）
             cat > .env <<'EOF'
