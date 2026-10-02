@@ -18,6 +18,21 @@
         <span v-for="tag in article.tags" :key="tag.id" class="tag">{{ tag.name }}</span>
       </div>
 
+      <!-- 点赞：游客也能点，不需要登录。防重复用 localStorage（见脚本里的说明） -->
+      <div class="actions">
+        <button
+          type="button"
+          class="like-btn"
+          :class="{ liked }"
+          :disabled="liking"
+          @click="handleLike"
+        >
+          <span class="icon">{{ liked ? '♥' : '♡' }}</span>
+          <span>{{ liked ? '已点赞' : '点赞' }}</span>
+          <span class="count">{{ article.likeCount }}</span>
+        </button>
+      </div>
+
       <p class="back"><router-link to="/">← 返回首页</router-link></p>
     </template>
   </div>
@@ -26,7 +41,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
-import { fetchArticleBySlug, type Article } from '@/api/article';
+import { ElMessage } from 'element-plus';
+import { fetchArticleBySlug, likePost, type Article } from '@/api/article';
 import { renderMarkdown } from '@/utils/markdown';
 
 const route = useRoute();
@@ -34,6 +50,63 @@ const route = useRoute();
 const article = ref<(Article & { content?: string }) | null>(null);
 const loading = ref(true);
 const error = ref('');
+
+/**
+ * 点赞状态
+ * ------------------------------------------------------------
+ * 「谁点过赞」这件事服务端不知道（只有计数器，游客不登录），
+ * 所以用 localStorage 记在**访客自己的浏览器**里：
+ *   blog-liked:<slug> = "1"  表示这台浏览器点过这篇了
+ * 局限（答辩可以主动讲）：换个浏览器/清缓存就能再点一次，
+ * 属于"防误触"而不是"防刷"。要做严格去重得建 likes 表。
+ */
+const liked = ref(false);
+const liking = ref(false);
+
+function likedKey(slug: string) {
+  return `blog-liked:${slug}`;
+}
+
+/** localStorage 在无痕模式下可能直接抛异常，所以全部包 try/catch */
+function readLiked(slug: string) {
+  try {
+    return localStorage.getItem(likedKey(slug)) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeLiked(slug: string) {
+  try {
+    localStorage.setItem(likedKey(slug), '1');
+  } catch {
+    // 写不进去就算了，不影响点赞本身
+  }
+}
+
+async function handleLike() {
+  const slug = article.value?.slug;
+  if (!slug || liking.value) return;
+
+  if (liked.value) {
+    ElMessage.info('你已经点过赞了，谢谢支持～');
+    return;
+  }
+
+  liking.value = true;
+  try {
+    const res = await likePost(slug);
+    // 用后端返回的权威计数，而不是本地 +1 —— 别人同时点赞也不会错
+    if (article.value) article.value.likeCount = res.data.likeCount;
+    liked.value = true;
+    writeLiked(slug);
+    ElMessage.success('感谢点赞！');
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '点赞失败，稍后再试');
+  } finally {
+    liking.value = false;
+  }
+}
 
 /** .content 这个 div 的 DOM 引用（模板里 ref="contentEl" 对应这里） */
 const contentEl = ref<HTMLElement | null>(null);
@@ -54,6 +127,8 @@ async function loadArticle(slug: string) {
   try {
     const res = await fetchArticleBySlug(slug);
     article.value = res.data;
+    // 换文章时要重新读一次"这篇我点过没"
+    liked.value = readLiked(slug);
   } catch (e) {
     error.value = e instanceof Error ? e.message : '加载失败';
   } finally {
@@ -161,16 +236,19 @@ watch(
 
 <style scoped>
 .post {
-  max-width: 760px;
+  /* 宽度与首页共用同一个变量 → 两个页面的左右边界严丝合缝 */
+  max-width: var(--content-width, 820px);
   margin: 0 auto;
-  padding: 40px 20px 60px;
+  padding: 44px 20px 64px;
   font-family: system-ui, sans-serif;
-  line-height: 1.8;
+  /* 中文长文最舒服的组合：16px + 1.85 行高 */
+  font-size: 16px;
+  line-height: 1.85;
 }
 .post h1 {
-  font-size: 28px;
+  font-size: 30px;
   line-height: 1.4;
-  margin: 0 0 12px;
+  margin: 0 0 14px;
 }
 .meta {
   color: var(--text-muted);
@@ -297,6 +375,48 @@ watch(
   padding: 2px 8px;
   border-radius: 10px;
 }
+
+/* ---- 点赞区 ---- */
+.actions {
+  margin: 28px 0 8px;
+  display: flex;
+  justify-content: center;
+}
+.like-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  padding: 9px 22px;
+  border-radius: 22px;
+  cursor: pointer;
+  color: var(--text-body);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+  transition: all 0.2s;
+}
+.like-btn:hover:not(:disabled) {
+  border-color: #f56c6c;
+  color: #f56c6c;
+  transform: translateY(-1px);
+}
+.like-btn .icon {
+  font-size: 16px;
+  line-height: 1;
+}
+.like-btn .count {
+  font-weight: 600;
+}
+.like-btn.liked {
+  color: #f56c6c;
+  border-color: #f56c6c;
+  background: rgba(245, 108, 108, 0.08);
+}
+.like-btn:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
 .back {
   margin-top: 32px;
   font-size: 14px;
@@ -310,5 +430,30 @@ watch(
 }
 .error {
   color: #f56c6c;
+}
+
+/* ---- 手机端：字号微收、代码块左右内边距减小，避免出现横向滚动条 ---- */
+@media (max-width: 640px) {
+  .post {
+    padding: 26px 14px 48px;
+    font-size: 15px;
+  }
+  .post h1 {
+    font-size: 23px;
+  }
+  .content :deep(pre) {
+    padding: 12px;
+    border-radius: 5px;
+  }
+  .content :deep(code) {
+    font-size: 13px;
+  }
+  .content :deep(table) {
+    font-size: 13px;
+  }
+  .content :deep(th),
+  .content :deep(td) {
+    padding: 6px 8px;
+  }
 }
 </style>

@@ -97,6 +97,9 @@ model Article {
 
   status      ArticleStatus @default(DRAFT)
   viewCount   Int         @default(0) @map("view_count")
+  // 点赞数：只存一个计数器，不记录"谁点的"。
+  // 为什么这么设计见 article.service.ts 的 likeArticle() 注释。
+  likeCount   Int         @default(0) @map("like_count")
   isTop       Boolean     @default(false) @map("is_top")
 
   publishedAt DateTime?   @map("published_at")

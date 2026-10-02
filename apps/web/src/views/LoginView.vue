@@ -70,7 +70,7 @@ async function handleLogin() {
 <style scoped>
 .login-wrap {
   /* 减去导航栏高度，否则页面会多出一条滚动条 */
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--nav-height, 60px));
   display: flex;
   align-items: center;
   justify-content: center;

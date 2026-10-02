@@ -35,6 +35,21 @@
   --nav-text: #303133;
   --nav-text-muted: #606266;
   --nav-accent: #409eff;
+
+  /* ---- 装修层：背景、阴影、尺寸（2026-10-02 精修）---- */
+  /* 页面背景：两层极淡的径向渐变叠在白底上，做出"顶部有光"的感觉。
+     为什么用 CSS 渐变而不是背景图片：
+       ① 体积 0 KB，不用额外请求，也不会拖慢首屏
+       ② 深色模式只要换一组颜色，不用准备两张图
+       ③ 任何分辨率都不糊 */
+  --page-bg-layer:
+    radial-gradient(1100px 520px at 50% -140px, #eaf3ff 0%, rgba(255, 255, 255, 0) 72%),
+    radial-gradient(820px 460px at 100% -60px, #f4eefc 0%, rgba(255, 255, 255, 0) 62%);
+  --nav-bg-glass: rgba(255, 255, 255, 0.82); /* 半透明导航底色 + 毛玻璃 */
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --card-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.1);
+  --content-width: 820px; /* 正文与列表统一宽度：约 70~80 字符/行，最适合阅读 */
+  --nav-height: 60px;
 }
 
 html.dark {
@@ -58,6 +73,14 @@ html.dark {
   --nav-text: #e5eaf3;
   --nav-text-muted: #cfd3dc;
   --nav-accent: #409eff;
+
+  /* 深色版背景层：只在顶部留一点冷色微光，整体仍然压暗 */
+  --page-bg-layer:
+    radial-gradient(1100px 520px at 50% -140px, #16243a 0%, rgba(0, 0, 0, 0) 72%),
+    radial-gradient(820px 460px at 100% -60px, #241a33 0%, rgba(0, 0, 0, 0) 62%);
+  --nav-bg-glass: rgba(29, 30, 31, 0.82);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  --card-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.55);
 }
 
 /* 页面整体底色与文字色：写在 html/body 上，所有路由页面自动继承 */
@@ -65,8 +88,16 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg-page);
+  background-color: var(--bg-page);
   color: var(--text-main);
+}
+
+/* 背景层单独放在 body 上：渐变 + fixed，滚动时背景不动（像"贴"在屏幕上） */
+body {
+  background-image: var(--page-bg-layer);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-position: top center;
 }
 
 /* 切换主题时给个 0.25 秒过渡，避免颜色"啪"地跳变 */

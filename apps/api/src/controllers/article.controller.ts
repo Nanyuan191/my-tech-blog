@@ -74,6 +74,19 @@ export async function detail(req: Request, res: Response) {
   res.json({ success: true, data: article });
 }
 
+/**
+ * 点赞 +1（公开接口，不需要登录）
+ * 用 POST 而不是 GET：GET 语义是"只读"，而这里会改数据。
+ * 浏览器预取、爬虫抓取都可能触发 GET —— 那是典型的"意料之外的写操作"。
+ */
+export async function like(req: Request, res: Response) {
+  const slug = req.params.slug;
+  if (!slug) throw AppError.badRequest('缺少文章标识');
+
+  const data = await articleService.likeArticle(slug);
+  res.json({ success: true, data });
+}
+
 // ---- 后台接口 ----
 
 /** 后台文章列表（含草稿） */

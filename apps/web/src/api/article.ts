@@ -22,6 +22,7 @@ export interface Article {
   coverImage: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   viewCount: number;
+  likeCount: number;
   isTop: boolean;
   publishedAt: string | null;
   createdAt: string;
@@ -83,4 +84,15 @@ export function fetchCategories() {
 /** 标签列表 */
 export function fetchTags() {
   return request.get<unknown, { success: boolean; data: Tag[] }>('/tags');
+}
+
+/**
+ * 点赞（+1）
+ * 注意用的是 POST：这个接口会改数据，不能用 GET。
+ * 公开接口 —— 游客也能点，所以不需要带 token。
+ */
+export function likePost(slug: string) {
+  return request.post<unknown, { success: boolean; data: { slug: string; likeCount: number } }>(
+    `/posts/${slug}/like`
+  );
 }

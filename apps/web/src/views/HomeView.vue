@@ -18,6 +18,7 @@
           <span v-if="item.category" class="cat">{{ item.category.name }}</span>
           <span>{{ formatDate(item.publishedAt) }}</span>
           <span>阅读 {{ item.viewCount }}</span>
+          <span v-if="item.likeCount > 0">点赞 {{ item.likeCount }}</span>
         </p>
         <p class="summary">{{ item.summary }}</p>
         <p class="tags">
@@ -61,21 +62,22 @@ onMounted(async () => {
 
 <style scoped>
 .wrap {
-  max-width: 720px;
+  /* 统一用主题表里的内容宽度变量：首页和文章页左右边界完全对齐 */
+  max-width: var(--content-width, 820px);
   margin: 0 auto;
-  padding: 0 20px 40px;
+  padding: 0 20px 56px;
   font-family: system-ui, sans-serif;
 }
 
 /* ---- 头部横幅 ---- */
 .hero {
-  padding: 44px 0 12px;
+  padding: 52px 0 16px;
   border-bottom: 1px solid var(--border-soft);
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 .hero h1 {
-  margin: 0 0 8px;
-  font-size: 30px;
+  margin: 0 0 10px;
+  font-size: 32px;
   letter-spacing: 0.5px;
 }
 /* 标题左侧的强调竖条：纯 CSS，不用图片 */
@@ -83,7 +85,7 @@ onMounted(async () => {
   content: '';
   display: inline-block;
   width: 5px;
-  height: 24px;
+  height: 26px;
   margin-right: 12px;
   border-radius: 3px;
   background: var(--accent);
@@ -99,24 +101,26 @@ onMounted(async () => {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 18px;
 }
 .card {
-  padding: 20px 24px;
+  padding: 22px 26px;
   background: var(--bg-card);
   border: 1px solid var(--border-soft);
   border-radius: 12px;
+  box-shadow: var(--card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
   /* 过渡要写在常态上：hover 才有平滑的进/出两个方向的动画 */
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  transform: translateY(-3px);
+  box-shadow: var(--card-shadow-hover, 0 10px 26px rgba(0, 0, 0, 0.1));
   border-color: var(--accent);
 }
 .card h2 {
-  margin: 0 0 8px;
-  font-size: 20px;
+  margin: 0 0 10px;
+  font-size: 21px;
+  line-height: 1.45;
 }
 .card h2 a {
   color: var(--text-main);
@@ -164,5 +168,41 @@ onMounted(async () => {
 }
 .error {
   color: #f56c6c;
+}
+
+/* ---- 手机端：字号与留白一起收，避免一行只放得下几个字 ---- */
+@media (max-width: 640px) {
+  .wrap {
+    padding: 0 14px 40px;
+  }
+  .hero {
+    padding: 32px 0 14px;
+    margin-bottom: 20px;
+  }
+  .hero h1 {
+    font-size: 24px;
+  }
+  .hero h1::before {
+    height: 20px;
+    width: 4px;
+    margin-right: 9px;
+  }
+  .hero-sub {
+    font-size: 13px;
+  }
+  .card {
+    padding: 18px 18px;
+  }
+  .card h2 {
+    font-size: 18px;
+  }
+  .meta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .summary {
+    font-size: 14px;
+    line-height: 1.65;
+  }
 }
 </style>

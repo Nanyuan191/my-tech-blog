@@ -46,6 +46,11 @@ publicRouter.delete('/:id', requireAuth, wrap(articleController.remove));
 // optionalAuth：带 token 时能预览未发布的草稿，不带 token 只能看已发布的。
 publicRouter.get('/:slug', optionalAuth, wrap(articleController.detail));
 
+// 点赞：公开接口（游客也能点），只加计数不需要登录。
+// 路径两段式 /:slug/like，和上面的 /:slug 不冲突（段数不同），
+// 但仍写在它后面保持一致的可读顺序。
+publicRouter.post('/:slug/like', wrap(articleController.like));
+
 // ============ 后台路由（需登录） ============
 const adminRouter = Router();
 adminRouter.use(requireAuth); // 一行搞定：这个 router 下所有接口都要登录

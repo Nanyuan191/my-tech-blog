@@ -42,6 +42,7 @@ const LIST_FIELDS = {
   coverImage: true,
   status: true,
   viewCount: true,
+  likeCount: true,
   isTop: true,
   publishedAt: true,
   createdAt: true,
@@ -153,6 +154,39 @@ export async function getArticleBySlug(slug: string, isAdmin = false) {
   }
 
   return normalizeTags(article);
+}
+
+/**
+ * 点赞（+1）
+ * ------------------------------------------------------------
+ * 设计取舍（答辩可讲）：
+ * 1. 只存计数器、不存"谁点的"
+ *    真正的去重需要用户身份。本站只有管理员一个账号、游客不登录，
+ *    所以服务端没有可靠的"人"的概念 —— 前端用 localStorage 记下
+ *    「这篇文章我点过了」来防重复点击。
+ * 2. 这属于**防君子不防小人**：清一下浏览器缓存就能再点一次。
+ *    对个人博客完全够用；如果要做严格去重，正确方案是
+ *    新建 likes 表（articleId + 指纹/IP），或者引入用户体系。
+ * 3. 用 increment 而不是"先读后写"，并发下不会丢计数
+ *    （和 viewCount 是同一个道理）。
+ */
+export async function likeArticle(slug: string) {
+  const article = await prisma.article.findUnique({
+    where: { slug },
+    select: { id: true, status: true },
+  });
+
+  if (!article) throw AppError.notFound('文章不存在');
+  // 草稿不允许被点赞 —— 和详情页一样，未发布的内容对外不存在
+  if (article.status !== 'PUBLISHED') throw AppError.notFound('文章不存在');
+
+  const updated = await prisma.article.update({
+    where: { id: article.id },
+    data: { likeCount: { increment: 1 } },
+    select: { slug: true, likeCount: true },
+  });
+
+  return updated;
 }
 
 export interface CreateArticleInput {

@@ -1,5 +1,8 @@
 <template>
   <div class="app">
+    <!-- 顶部阅读进度条：宽度 = 当前阅读百分比（JS 里算） -->
+    <div class="progress" :style="{ width: progress + '%' }"></div>
+
     <!--
       顶部导航栏：写在 App.vue 里 = 所有页面自动带上，不用每个页面都写一遍。
       第 2 项「深色模式」会在 :root / html.dark 里定义 --nav-* 这组变量，
@@ -35,10 +38,16 @@
     <main class="main">
       <router-view />
     </main>
+
+    <!-- 回到顶部：滚动超过一屏才出现，避免一进页面就挡视线 -->
+    <transition name="fade">
+      <button v-if="showTop" class="to-top" title="回到顶部" @click="backToTop">↑</button>
+    </transition>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
@@ -60,16 +69,58 @@ async function handleLogout() {
   await auth.logout();
   router.push('/');
 }
+
+// ---- 阅读进度条 + 回到顶部（两者共用同一个 scroll 事件，只监听一次）----
+const progress = ref(0);
+const showTop = ref(false);
+
+/**
+ * 进度计算公式：已滚动距离 ÷ 还能滚的距离
+ * ⚠️ 分母必须是 (scrollHeight - clientHeight)，不能只用 scrollHeight ——
+ *    否则滚到底也只到 80% 左右，永远到不了 100%。
+ */
+function onScroll() {
+  const el = document.documentElement;
+  const max = el.scrollHeight - el.clientHeight;
+  progress.value = max > 50 ? Math.min(100, (el.scrollTop / max) * 100) : 0;
+  showTop.value = el.scrollTop > 320;
+}
+
+function backToTop() {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+onMounted(() => {
+  // passive: true 告诉浏览器这个监听器不会 preventDefault，
+  // 滚动时可以少一层检查，滑起来更顺
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+});
+// 组件销毁时解绑，防止内存泄漏（App.vue 一般不会销毁，但这是好习惯）
+onUnmounted(() => window.removeEventListener('scroll', onScroll));
 </script>
 
 <style scoped>
+/* ---- 阅读进度条：贴在最顶端的一条细线 ---- */
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  background: var(--accent);
+  z-index: 200; /* 必须比导航栏(100)高，否则被盖住 */
+  transition: width 0.08s linear;
+}
+
 .navbar {
   display: flex;
   align-items: center;
   gap: 20px;
-  height: 56px;
+  height: var(--nav-height, 60px);
   padding: 0 24px;
-  background: var(--nav-bg, #ffffff);
+  /* 半透明底 + 毛玻璃：滚动时下层的文字会"透光"，看起来更有层次 */
+  background: var(--nav-bg-glass, var(--nav-bg, #ffffff));
+  backdrop-filter: saturate(180%) blur(10px);
   border-bottom: 1px solid var(--nav-border, #ebeef5);
   /* 吸顶：页面滚动时导航栏一直留在顶部 */
   position: sticky;
@@ -131,6 +182,66 @@ async function handleLogout() {
 }
 .main {
   /* 减去导航栏高度，保证内容区至少铺满一屏 */
-  min-height: calc(100vh - 56px);
+  min-height: calc(100vh - var(--nav-height, 60px));
+}
+
+/* ---- 回到顶部 ---- */
+.to-top {
+  position: fixed;
+  right: 24px;
+  bottom: 28px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--nav-text-muted, #606266);
+  background: var(--nav-bg-glass, #ffffff);
+  border: 1px solid var(--nav-border, #ebeef5);
+  box-shadow: var(--card-shadow-hover, 0 10px 26px rgba(0, 0, 0, 0.1));
+  backdrop-filter: saturate(180%) blur(10px);
+  transition: transform 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  z-index: 150;
+}
+.to-top:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  transform: translateY(-3px);
+}
+/* 淡入淡出（配合 <transition name="fade">） */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* ---- 手机端：按钮缩小、左右留白收窄 ---- */
+@media (max-width: 640px) {
+  .navbar {
+    padding: 0 14px;
+    gap: 12px;
+  }
+  .brand {
+    font-size: 15px;
+  }
+  .links {
+    gap: 12px;
+  }
+  .who {
+    display: none; /* 手机上空间紧张，昵称先藏起来 */
+  }
+  .btn {
+    padding: 5px 10px;
+  }
+  .to-top {
+    right: 14px;
+    bottom: 18px;
+    width: 38px;
+    height: 38px;
+  }
 }
 </style>
