@@ -155,11 +155,11 @@ onMounted(async () => {
   align-items: flex-start;
   gap: 22px;
   padding: 20px;
-  /* 卡片去死白（明显版）：左上角醒目的主题蓝晕 + 白→浅蓝灰的清晰斜向过渡，
+  /* 卡片去死白（强版）：左上角醒目的主题蓝晕（0.40，船长拍板） + 白→浅蓝灰清晰过渡，
      和黑底代码雨同一色系；渐变无细节，对文字零干扰。
      对比度复核：最暗处 #dce6f2 与正文 #555 约 5:1，标题更深，均超 AA */
   background:
-    radial-gradient(110% 130% at 0% 0%, rgba(64, 158, 255, 0.28) 0%, rgba(64, 158, 255, 0) 60%),
+    radial-gradient(110% 130% at 0% 0%, rgba(64, 158, 255, 0.4) 0%, rgba(64, 158, 255, 0) 60%),
     linear-gradient(150deg, #ffffff 0%, #eef3f9 45%, #dce6f2 100%);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
