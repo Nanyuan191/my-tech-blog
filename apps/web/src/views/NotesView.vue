@@ -7,15 +7,14 @@
     <div class="note-card">
       <h2>关于这个网站</h2>
       <p>
-        这里是我的个人技术博客，用来存放我在学习和做项目过程中的记录与思考。
+        看着神神叨叨的，其实这里是我的个人技术博客啦，用来存放我在学习和做项目过程中的记录与思考。
         站点基于 Vue 3 + Express + MySQL 构建，用 Docker Compose 部署，
         由 GitHub Actions 自动构建上线。
       </p>
 
       <h2>博主的话</h2>
       <p>
-        记忆会褪色，但写下来的不会。这里的大多数文章，都是我在踩坑之后
-        重新整理出来的——它们不一定完美，但每一个字都来自真实的实践。
+       谨以此站，记录我的生活成长中的一点一滴
       </p>
       <p>
         如果你也在做类似的东西，欢迎交流。
@@ -55,9 +54,12 @@
   color: #f5f7fa; /* 黑底上必须用亮色 */
   text-shadow: 0 0 24px rgba(64, 158, 255, 0.35);
 }
-/* 白色文本框：和文章页/首页卡片同一套视觉语言 */
+/* 毛玻璃文本框：和文章页 .post 同一套配方（82% 半透明白 + backdrop 虚化），
+   黑底代码雨隔着卡片化作朦胧蓝色光点，文字依然清晰可读 */
 .note-card {
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   padding: 30px 34px 36px;
