@@ -20,6 +20,7 @@ export interface Article {
   slug: string;
   summary: string | null;
   coverImage: string | null;
+  bgImage: string | null;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
   viewCount: number;
   likeCount: number;

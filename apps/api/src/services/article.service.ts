@@ -194,6 +194,7 @@ export interface CreateArticleInput {
   content: string;
   summary?: string;
   coverImage?: string;
+  bgImage?: string;
   categoryId?: number;
   tagIds?: number[];
   status?: 'DRAFT' | 'PUBLISHED';
@@ -211,6 +212,7 @@ export async function createArticle(input: CreateArticleInput) {
       content: input.content,
       summary: input.summary ?? input.content.slice(0, 150).replace(/[#*`>\-\n]/g, ' ').trim(),
       coverImage: input.coverImage,
+      bgImage: input.bgImage,
       categoryId: input.categoryId ?? null,
       status: input.status ?? 'DRAFT',
       isTop: input.isTop ?? false,
@@ -245,6 +247,7 @@ export async function updateArticle(
       content: input.content,
       summary: input.summary,
       coverImage: input.coverImage,
+      bgImage: input.bgImage,
       categoryId: input.categoryId,
       status: input.status,
       isTop: input.isTop,

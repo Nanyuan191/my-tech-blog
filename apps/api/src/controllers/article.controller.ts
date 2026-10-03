@@ -28,6 +28,8 @@ const createSchema = z.object({
   content: z.string().min(1, '正文不能为空').max(500_000),
   summary: z.string().max(512).optional(),
   coverImage: z.string().max(512).optional(),
+  // 文章页背景图：短标识（bg:xxx）或外链 URL，空 = 默认洛克背景
+  bgImage: z.string().max(512).optional(),
   categoryId: z.coerce.number().int().positive().optional(),
   tagIds: z.array(z.coerce.number().int().positive()).optional(),
   status: z.enum(['DRAFT', 'PUBLISHED']).optional(),

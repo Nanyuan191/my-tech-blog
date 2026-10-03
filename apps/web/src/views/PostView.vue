@@ -2,7 +2,8 @@
   <!-- 背景层必须放在 .post 外面（兄弟节点）：
        卡片用了 backdrop-filter（毛玻璃），它会把父元素变成 fixed 后代的包含块，
        背景层若在卡片内部，position:fixed 就会失效、被裁剪进卡片范围 -->
-  <div class="post-bg" aria-hidden="true"></div>
+  <!-- 背景图由后台按文章选择（bgImage 字段），bgStyle 里是翻译后的图片地址 -->
+  <div class="post-bg" aria-hidden="true" :style="bgStyle"></div>
   <div class="post">
     <p v-if="loading">加载中...</p>
     <p v-else-if="error" class="error">{{ error }}</p>
@@ -112,6 +113,7 @@ import { ElMessage } from 'element-plus';
 import { fetchArticleBySlug, likePost, type Article } from '@/api/article';
 import { fetchComments, createComment, type Comment } from '@/api/comment';
 import { renderMarkdown } from '@/utils/markdown';
+import { resolveBackground } from '@/utils/backgrounds';
 import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
@@ -120,6 +122,11 @@ const auth = useAuthStore();
 const article = ref<(Article & { content?: string }) | null>(null);
 const loading = ref(true);
 const error = ref('');
+
+/** 文章页背景：按这篇文章的 bgImage 标识动态翻译（空 = 默认洛克图） */
+const bgStyle = computed(() => ({
+  backgroundImage: `url('${resolveBackground(article.value?.bgImage)}')`,
+}));
 
 /**
  * 点赞状态
@@ -445,9 +452,9 @@ watch(
   position: fixed;
   inset: 0;
   z-index: -1;
-  background:
-    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)),
-    url('../assets/post-bg.jpg') center / cover no-repeat;
+  /* 图片地址来自 bgStyle（按文章的 bgImage 动态翻译）；
+     这里只保留 45% 黑遮罩 —— 图片只是"氛围"，不能干扰正文阅读 */
+  background: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)) center / cover no-repeat;
 }
 .post h1 {
   font-size: 30px;

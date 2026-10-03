@@ -94,6 +94,9 @@ model Article {
   summary     String?     @db.VarChar(512)
   content     String      @db.Text        // Markdown 原文，渲染在前端做
   coverImage  String?     @map("cover_image") @db.VarChar(512)
+  // 文章页背景图：存短标识（bg:locke 等，见前端 utils/backgrounds.ts）或外链 URL，
+  // 空 = 默认洛克背景。和 coverImage 同一套"存标识、前端翻译"的机制
+  bgImage     String?     @map("bg_image") @db.VarChar(512)
 
   status      ArticleStatus @default(DRAFT)
   viewCount   Int         @default(0) @map("view_count")

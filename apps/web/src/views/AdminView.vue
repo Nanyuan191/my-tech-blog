@@ -201,6 +201,43 @@
           </div>
         </el-form-item>
 
+        <!--
+          文章页背景图：和封面图同一套"预设素材库"机制
+          数据库存 "bg:locke" 这类短标识，文章页读的时候翻译成真实图片地址，
+          详见 src/utils/backgrounds.ts 顶部注释；留空 = 默认洛克背景
+        -->
+        <el-form-item label="文章背景">
+          <div class="cover-picker">
+            <div class="cover-grid">
+              <button
+                v-for="p in BG_PRESETS"
+                :key="p.key"
+                type="button"
+                class="cover-opt"
+                :class="{ active: form.bgImage === p.key }"
+                :title="`使用「${p.label}」背景`"
+                @click="pickPresetBg(p.key)"
+              >
+                <img :src="p.url" :alt="p.label" />
+                <span>{{ p.label }}</span>
+              </button>
+
+              <!-- 恢复默认：清空 bgImage，文章页用默认洛克背景 -->
+              <button
+                type="button"
+                class="cover-opt cover-none"
+                :class="{ active: !form.bgImage }"
+                title="恢复默认背景（洛克）"
+                @click="pickPresetBg('')"
+              >
+                <span class="none-mark">⊘</span>
+                <span>默认</span>
+              </button>
+            </div>
+            <p class="cover-tip">背景只影响文章页两侧的氛围图，正文仍是白色毛玻璃卡片，不影响阅读。</p>
+          </div>
+        </el-form-item>
+
         <el-form-item label="摘要">
           <el-input v-model="form.summary" placeholder="不填会自动截取正文前 150 字" />
         </el-form-item>
@@ -256,6 +293,7 @@ import {
 } from '@/api/comment';
 // 封面图素材库：预设选项（点选即用）+ isPresetCover 用于区分"预设标识"和"自定义外链"
 import { COVER_PRESETS, isPresetCover } from '@/utils/covers';
+import { BG_PRESETS } from '@/utils/backgrounds';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -278,6 +316,7 @@ const form = reactive({
   categoryId: undefined as number | undefined,
   tagIds: [] as number[],
   coverImage: '',
+  bgImage: '',
   summary: '',
   content: '',
   status: 'PUBLISHED' as 'DRAFT' | 'PUBLISHED',
@@ -293,6 +332,11 @@ const coverBroken = ref(false);
 function pickPresetCover(key: string) {
   form.coverImage = key;
   coverBroken.value = false; // 换图时重置裂图标记，否则上次的失败状态会残留
+}
+
+/** 选文章页背景：存 bg:xxx 标识，空串 = 恢复默认（洛克） */
+function pickPresetBg(key: string) {
+  form.bgImage = key;
 }
 
 // ---- 评论审核 ----
@@ -390,6 +434,7 @@ function resetForm() {
   form.categoryId = undefined;
   form.tagIds = [];
   form.coverImage = '';
+  form.bgImage = '';
   form.summary = '';
   form.content = '';
   form.status = 'PUBLISHED';
@@ -408,6 +453,7 @@ async function openEdit(row: Article) {
   form.categoryId = row.category?.id;
   form.tagIds = row.tags.map((t) => t.id);
   form.coverImage = row.coverImage ?? '';
+  form.bgImage = row.bgImage ?? '';
   form.summary = row.summary ?? '';
   form.status = row.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
 
@@ -444,7 +490,12 @@ async function handleSave() {
   // 写接口需要鉴权，手动带上 access token
   const headers = { Authorization: `Bearer ${auth.accessToken}` };
   // 封面图只传有效值：空串转 undefined，避免把空字符串存进数据库
-  const payload = { ...form, coverImage: form.coverImage.trim() || undefined };
+  // 空串转 undefined：不传该字段，避免把 null/空串脏数据写进数据库
+  const payload = {
+    ...form,
+    coverImage: form.coverImage.trim() || undefined,
+    bgImage: form.bgImage.trim() || undefined,
+  };
   try {
     if (editingId.value) {
       await request.put(`/posts/${editingId.value}`, payload, { headers });
