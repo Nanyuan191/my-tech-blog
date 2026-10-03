@@ -124,20 +124,47 @@
         </el-form-item>
 
         <el-form-item label="分类">
-          <el-select v-model="form.categoryId" placeholder="选择分类" clearable>
-            <el-option
-              v-for="c in categories"
-              :key="c.id"
-              :label="c.name"
-              :value="c.id"
-            />
-          </el-select>
+          <div class="tax-row">
+            <el-select v-model="form.categoryId" placeholder="选择分类" clearable>
+              <el-option
+                v-for="c in categories"
+                :key="c.id"
+                :label="c.name"
+                :value="c.id"
+              />
+            </el-select>
+            <!-- 不够用就现场建一个：创建成功后自动加入下拉框并选中 -->
+            <el-button @click="handleNewCategory">＋ 新建分类</el-button>
+          </div>
         </el-form-item>
 
         <el-form-item label="标签">
-          <el-select v-model="form.tagIds" multiple placeholder="选择标签">
-            <el-option v-for="t in tags" :key="t.id" :label="t.name" :value="t.id" />
-          </el-select>
+          <div class="tax-row">
+            <el-select v-model="form.tagIds" multiple placeholder="选择标签">
+              <el-option v-for="t in tags" :key="t.id" :label="t.name" :value="t.id" />
+            </el-select>
+            <el-button @click="handleNewTag">＋ 新建标签</el-button>
+          </div>
+        </el-form-item>
+
+        <!-- 封面图：直接填图片外链 URL，首页卡片有图显示图、没图走渐变兜底 -->
+        <el-form-item label="封面图">
+          <div class="cover-row">
+            <el-input
+              v-model="form.coverImage"
+              placeholder="图片外链 URL（选填）。留空则首页卡片使用默认渐变色块"
+              clearable
+              @input="coverBroken = false"
+            />
+            <!-- 输入后立刻预览；URL 打不开（@error）就自动隐藏，避免裂图 -->
+            <img
+              v-if="form.coverImage && !coverBroken"
+              :src="form.coverImage"
+              class="cover-preview"
+              alt="封面预览"
+              @error="coverBroken = true"
+            />
+          </div>
         </el-form-item>
 
         <el-form-item label="摘要">
@@ -174,12 +201,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import request from '@/api/request';
 import { useAuthStore } from '@/stores/auth';
 import {
   fetchCategories,
   fetchTags,
+  createCategory,
+  createTag,
   type Article,
   type Category,
   type Tag,
@@ -212,10 +241,14 @@ const form = reactive({
   title: '',
   categoryId: undefined as number | undefined,
   tagIds: [] as number[],
+  coverImage: '',
   summary: '',
   content: '',
   status: 'PUBLISHED' as 'DRAFT' | 'PUBLISHED',
 });
+
+// 封面图 URL 打不开时置 true → 预览图自动隐藏（防裂图）
+const coverBroken = ref(false);
 
 // ---- 评论审核 ----
 const commentList = ref<AdminComment[]>([]);
@@ -311,10 +344,12 @@ function resetForm() {
   form.title = '';
   form.categoryId = undefined;
   form.tagIds = [];
+  form.coverImage = '';
   form.summary = '';
   form.content = '';
   form.status = 'PUBLISHED';
   editingId.value = null;
+  coverBroken.value = false;
 }
 
 function openCreate() {
@@ -327,6 +362,7 @@ async function openEdit(row: Article) {
   form.title = row.title;
   form.categoryId = row.category?.id;
   form.tagIds = row.tags.map((t) => t.id);
+  form.coverImage = row.coverImage ?? '';
   form.summary = row.summary ?? '';
   form.status = row.status === 'PUBLISHED' ? 'PUBLISHED' : 'DRAFT';
 
@@ -362,12 +398,14 @@ async function handleSave() {
   saving.value = true;
   // 写接口需要鉴权，手动带上 access token
   const headers = { Authorization: `Bearer ${auth.accessToken}` };
+  // 封面图只传有效值：空串转 undefined，避免把空字符串存进数据库
+  const payload = { ...form, coverImage: form.coverImage.trim() || undefined };
   try {
     if (editingId.value) {
-      await request.put(`/posts/${editingId.value}`, form, { headers });
+      await request.put(`/posts/${editingId.value}`, payload, { headers });
       ElMessage.success('修改成功');
     } else {
-      await request.post('/posts', form, { headers });
+      await request.post('/posts', payload, { headers });
       ElMessage.success('发布成功');
     }
     dialogVisible.value = false;
@@ -376,6 +414,50 @@ async function handleSave() {
     ElMessage.error(e instanceof Error ? e.message : '保存失败');
   } finally {
     saving.value = false;
+  }
+}
+
+/**
+ * 弹窗里直接新建分类：调后端 POST /categories（接口早就有了，之前缺前端入口），
+ * 成功后把新分类塞进下拉框选项并自动选中 —— 全程不用离开写文章弹窗。
+ */
+async function handleNewCategory() {
+  try {
+    const { value } = await ElMessageBox.prompt('给新分类起个名字', '新建分类', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '分类名不能为空',
+    });
+    const res = await createCategory((value ?? '').trim(), auth.accessToken);
+    categories.value = [...categories.value, res.data];
+    form.categoryId = res.data.id;
+    ElMessage.success(`分类「${res.data.name}」已创建并选中`);
+  } catch (e) {
+    // ElMessageBox 点取消/关闭时 reject 的是字符串 'cancel'/'close'，不算错误
+    if (e !== 'cancel' && e !== 'close') {
+      ElMessage.error(e instanceof Error ? e.message : '创建分类失败');
+    }
+  }
+}
+
+/** 同上，新建标签；创建后自动追加到已选标签里 */
+async function handleNewTag() {
+  try {
+    const { value } = await ElMessageBox.prompt('给新标签起个名字', '新建标签', {
+      confirmButtonText: '创建',
+      cancelButtonText: '取消',
+      inputPattern: /\S+/,
+      inputErrorMessage: '标签名不能为空',
+    });
+    const res = await createTag((value ?? '').trim(), auth.accessToken);
+    tags.value = [...tags.value, res.data];
+    if (!form.tagIds.includes(res.data.id)) form.tagIds.push(res.data.id);
+    ElMessage.success(`标签「${res.data.name}」已创建并选中`);
+  } catch (e) {
+    if (e !== 'cancel' && e !== 'close') {
+      ElMessage.error(e instanceof Error ? e.message : '创建标签失败');
+    }
   }
 }
 
@@ -414,8 +496,14 @@ onMounted(async () => {
 <style scoped>
 .admin {
   max-width: 1000px;
-  margin: 32px auto;
-  padding: 0 24px;
+  /* 2026-10-03 船长要求：后台背景改纯白（黑底只留给前台）。
+     做成白色大圆角面板铺满一屏，高度不够视口时也拉满，避免下面露出黑边 */
+  min-height: calc(100vh - 96px);
+  margin: 24px auto 48px;
+  padding: 28px 28px 40px;
+  background: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   font-family: system-ui, sans-serif;
 }
 .header {
@@ -431,6 +519,33 @@ onMounted(async () => {
 .who {
   margin-right: 12px;
   color: var(--text-muted);
+}
+/* 分类/标签下拉框 + 「新建」按钮的一行布局：select 占满、按钮固定宽 */
+.tax-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+.tax-row .el-select {
+  flex: 1;
+}
+/* 封面图输入 + 预览：预览固定 120x68（16:9 缩略），URL 加载失败自动隐藏 */
+.cover-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.cover-row .el-input {
+  flex: 1;
+}
+.cover-preview {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border-soft);
+  flex: none;
 }
 .tab-label {
   display: inline-flex;

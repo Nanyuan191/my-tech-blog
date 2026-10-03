@@ -87,6 +87,32 @@ export function fetchTags() {
 }
 
 /**
+ * 新建分类（后台功能，需登录）
+ * 后端 taxonomy.ts 里早就实现了 POST /categories，之前只是没有前端入口
+ */
+export function createCategory(name: string, token: string | null = null) {
+  return request.post<unknown, { success: boolean; data: Category }>(
+    '/categories',
+    { name },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+}
+
+/**
+ * 新建标签（后台功能，需登录）
+ * ⚠️ 注意：公开的 GET /tags 只返回「已有文章在用」的标签（articleCount > 0），
+ * 所以刚创建、还没挂到文章上的标签在重新打开弹窗后会暂时消失 ——
+ * 挂上文章后就一直显示了，这是后端有意设计的过滤，不是 Bug。
+ */
+export function createTag(name: string, token: string | null = null) {
+  return request.post<unknown, { success: boolean; data: Tag }>(
+    '/tags',
+    { name },
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+}
+
+/**
  * 点赞（+1）
  * 注意用的是 POST：这个接口会改数据，不能用 GET。
  * 公开接口 —— 游客也能点，所以不需要带 token。
