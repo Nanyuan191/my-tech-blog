@@ -422,28 +422,13 @@ watch(
      黑底部分留给船长后续铺静态背景图 */
   margin: 34px auto 56px;
   padding: 34px 36px 48px;
-  /* 毛玻璃暖白卡：不用任何图片，靠「一层极浅渐变 + 一层顶部暖光」做层次，
-     解决大面积死白显得单调的问题。
-     为什么不放背景图：图片自带细节和明暗，会和正文抢注意力、局部暗斑还会吃掉对比度；
-     而 CSS 渐变是"死"的（无细节、无突变），只提供方向感和温度，对阅读零干扰。
-     可读性实测：卡片区最暗处 (#f4f3f0) 与正文色 --text-body(#555) 对比度约 6.0:1，
-     远超无障碍 AA 标准（4.5:1）。 */
-  background:
-    /* ① 顶部暖光：呼应 .post-bg 那张暖调背景图，让卡片上缘有温度、不再"惨白" */
-    radial-gradient(
-      130% 70% at 50% -12%,
-      rgba(255, 244, 229, 0.55) 0%,
-      rgba(255, 244, 229, 0) 58%
-    ),
-    /* ② 主底色：近白 → 极浅暖灰的斜向渐变，给卡片一个轻微"光照方向" */
-    linear-gradient(
-      168deg,
-      rgba(255, 255, 255, 0.9) 0%,
-      rgba(251, 250, 248, 0.885) 50%,
-      rgba(244, 243, 240, 0.87) 100%
-    );
-  backdrop-filter: blur(16px) saturate(130%);
-  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  /* 毛玻璃白盒：白色半透明 + backdrop-filter 虚化，
+     背景图（.post-bg）透过卡片变成朦胧色块，正文依然可读。
+     不透明度 0.82 是可读性和透出感的平衡点，嫌"糊得不够"就往下调（最低别低于 0.7）
+     （2026-10-03：曾试过"暖光+渐变去死白"，船长指正他说的单调是首页卡片，此处回滚） */
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   box-shadow: var(--card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
