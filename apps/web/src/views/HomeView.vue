@@ -1,16 +1,22 @@
 <template>
   <div class="wrap">
     <!--
-      头部横幅：背景是一张压缩到 48KB 的抽象图（src/assets/hero-banner.jpg），
-      上面压一层「左深右透」的渐变遮罩（.hero::before）——
-      遮罩的作用：保证左边白字在任何图上都读得清，这是"图文横幅"的标准做法。
+      头部区（2026-10-03 重铸）：不再用"深色大盒子+背景图"，
+      改为无框设计 —— 大标题 + 副标题居中置顶，直接浮在纯黑代码雨背景上，
+      下方刻意留出一大片空白，给后续内容（签名档/统计/精选）预留位置。
     -->
     <header class="hero">
-      <div class="hero-text">
-        <h1>我的技术博客</h1>
-        <p class="hero-sub">记录开发过程中的思考与实践 —— Vue · Node · Docker</p>
-      </div>
+      <h1>记忆封存之处</h1>
+      <p class="hero-sub">将我的记忆弃置于此</p>
     </header>
+
+    <!--
+      副标题下的小链接：放在 header 外面、与文章卡片同级 ——
+      这样左边缘和卡片严丝合缝（两者共用 .wrap 的同一层内边距）
+    -->
+    <div class="hero-links">
+      <router-link class="hero-link" to="/notes">刻在不知名角落的话</router-link>
+    </div>
 
     <p v-if="loading">加载中...</p>
     <p v-else-if="error" class="error">{{ error }}</p>
@@ -99,48 +105,41 @@ onMounted(async () => {
   font-family: system-ui, sans-serif;
 }
 
-/* ---- 头部横幅：背景图 + 渐变遮罩 + 白字 ---- */
+/* ---- 头部区：无框居中，浮在纯黑代码雨背景上 ---- */
 .hero {
-  position: relative;
-  height: 260px;
-  border-radius: 16px;
-  overflow: hidden; /* 背景图跟着圆角裁掉 */
-  margin: 28px 0 30px;
-  background-image: url('../assets/hero-banner.jpg');
-  background-size: cover; /* 等比放大铺满，任何窗口宽度都不变形 */
-  background-position: center right; /* 网络光点在图右侧，优先展示 */
-}
-/* 遮罩：左深右透 —— 左边白字可读，右边图形露出 */
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(10, 16, 32, 0.72) 0%,
-    rgba(10, 16, 32, 0.38) 46%,
-    rgba(10, 16, 32, 0.05) 82%
-  );
-}
-.hero-text {
-  position: relative; /* 压在遮罩之上（遮罩 z 序低于 relative 内容） */
-  z-index: 1;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center; /* 垂直居中 */
-  padding: 0 40px;
+  text-align: center;
+  /* 上方留出"抬头"的呼吸感；下方的大 padding 就是给后续内容预留的空白 */
+  padding: 88px 20px 110px;
 }
 .hero h1 {
-  margin: 0 0 12px;
-  font-size: 32px;
-  letter-spacing: 0.5px;
-  color: #ffffff;
+  margin: 0 0 18px;
+  font-size: 44px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  color: #f5f7fa; /* 纯黑背景上必须用亮色，不能用 var(--text-main)（那是深色字） */
+  text-shadow: 0 0 24px rgba(64, 158, 255, 0.35); /* 淡淡的蓝色光晕，和代码雨呼应 */
 }
 .hero-sub {
   margin: 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(255, 255, 255, 0.55);
   font-size: 15px;
+  letter-spacing: 1px;
+}
+/* 副标题下的小链接：与文章卡片同级、左边缘对齐，低调不抢标题 */
+.hero-links {
+  margin: -40px 0 34px;
+  text-align: left;
+}
+.hero-link {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.3);
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+.hero-link:hover {
+  color: var(--accent, #409eff);
+  border-color: var(--accent, #409eff);
 }
 
 /* ---- 文章卡片：左图右文 ---- */
@@ -269,15 +268,11 @@ onMounted(async () => {
     padding: 0 14px 40px;
   }
   .hero {
-    height: 190px;
-    margin: 18px 0 22px;
-    border-radius: 12px;
-  }
-  .hero-text {
-    padding: 0 22px;
+    padding: 56px 16px 72px;
   }
   .hero h1 {
-    font-size: 23px;
+    font-size: 30px;
+    letter-spacing: 2px;
   }
   .hero-sub {
     font-size: 13px;

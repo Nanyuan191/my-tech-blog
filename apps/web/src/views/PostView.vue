@@ -1,5 +1,8 @@
 <template>
   <div class="post">
+    <!-- 文章页背景图：fixed 铺满视口、负层级垫底（白卡片之下、黑色页面底色之上），
+         上面压一层 45% 黑遮罩 —— 图片只是"氛围"，不能干扰正文阅读 -->
+    <div class="post-bg" aria-hidden="true"></div>
     <p v-if="loading">加载中...</p>
     <p v-else-if="error" class="error">{{ error }}</p>
 
@@ -413,12 +416,31 @@ watch(
 .post {
   /* 宽度与首页共用同一个变量 → 两个页面的左右边界严丝合缝 */
   max-width: var(--content-width, 820px);
-  margin: 0 auto;
-  padding: 44px 20px 64px;
+  /* 2026-10-03：页面背景改纯黑后，正文整体装进白色文本框——
+     里面的文字颜色（--text-*）都是按浅底设计的，进白盒才能读清；
+     黑底部分留给船长后续铺静态背景图 */
+  margin: 34px auto 56px;
+  padding: 34px 36px 48px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  box-shadow: var(--card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
   font-family: system-ui, sans-serif;
   /* 中文长文最舒服的组合：16px + 1.85 行高 */
   font-size: 16px;
   line-height: 1.85;
+}
+/* 文章页背景图：fixed 铺满视口、负层级垫底（白卡片之下、黑色页面底色之上），
+   上面压一层 45% 黑遮罩 —— 图片只是"氛围"，不能干扰正文阅读。
+   层叠上下文由 App.vue 的 .app{position:relative;z-index:0} 提供，
+   否则会被 body 的纯黑底盖住（和代码雨同一个坑）。 */
+.post-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)),
+    url('../assets/post-bg.jpg') center / cover no-repeat;
 }
 .post h1 {
   font-size: 30px;
@@ -775,7 +797,8 @@ watch(
 /* ---- 手机端：字号微收、代码块左右内边距减小，避免出现横向滚动条 ---- */
 @media (max-width: 640px) {
   .post {
-    padding: 26px 14px 48px;
+    margin: 18px 12px 40px;
+    padding: 22px 16px 34px;
     font-size: 15px;
   }
   .post h1 {

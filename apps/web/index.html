@@ -9,7 +9,7 @@
     -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="description" content="个人技术博客 —— 记录开发过程中的思考与实践" />
-    <title>我的技术博客</title>
+    <title>循环往复的视界——鸢</title>
     <!--
       防「闪白」小脚本（FOUC = Flash Of Unstyled Content）：
       Vue 的 JS 要等下载+执行完才会去设置主题，这中间会先闪一下浅色。
@@ -19,10 +19,14 @@
     <script>
       (function () {
         try {
+          // 深色模式暂时下线（2026-10-03）：与 stores/theme.ts 的 DARK_MODE_ENABLED 保持一致，
+          // 恢复时两处一起改回 true
+          var DARK_MODE_ENABLED = false;
           var saved = localStorage.getItem('blog-theme');
           var dark =
-            saved === 'dark' ||
-            (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            DARK_MODE_ENABLED &&
+            (saved === 'dark' ||
+              (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches));
           if (dark) document.documentElement.classList.add('dark');
         } catch (e) {
           /* 隐私模式下 localStorage 可能不可用，忽略即可，退化成跟随系统 */

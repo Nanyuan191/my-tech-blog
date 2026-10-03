@@ -46,6 +46,9 @@ yarn-error.log*
 # 别人克隆仓库用不到，提交进去反而是干扰。
 push-to-github.bat
 
+# ---- 本地视觉验证截图产物（不进仓库）----
+_verifyapp/
+
 # 说明：docker-compose.override.yml 会提交到 Git（保留）
 # 它只把 MySQL 端口绑到 127.0.0.1，供本地开发连接，不构成安全风险，
 # 而且新成员克隆后直接 docker compose up -d db 就能用，省一步手工操作。

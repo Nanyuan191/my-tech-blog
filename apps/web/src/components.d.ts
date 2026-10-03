@@ -8,6 +8,7 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    BinaryRain: typeof import('./components/BinaryRain.vue')['default']
     ElBadge: typeof import('element-plus/es')['ElBadge']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElDialog: typeof import('element-plus/es')['ElDialog']

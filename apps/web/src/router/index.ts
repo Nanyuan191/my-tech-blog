@@ -10,6 +10,12 @@ const router = createRouter({
       component: () => import('@/views/HomeView.vue'),
     },
     {
+      // 特殊页：网站说明 + 博主的话（静态内容，不进数据库）
+      path: '/notes',
+      name: 'notes',
+      component: () => import('@/views/NotesView.vue'),
+    },
+    {
       path: '/posts/:slug',
       name: 'post',
       component: () => import('@/views/PostView.vue'),

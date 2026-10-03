@@ -10,8 +10,8 @@
  * ============================================================ */
 
 :root {
-  /* 底色 */
-  --bg-page: #ffffff;      /* 页面底色 */
+  /* 底色 —— 2026-10-03 船长定调：页面纯黑，二进制代码雨浮在黑底上 */
+  --bg-page: #000000;      /* 页面底色：纯黑 */
   --bg-subtle: #f5f7fa;    /* 次级底色（登录页那种灰底） */
   --bg-card: #ffffff;      /* 卡片 / 面板底色 */
 
@@ -36,18 +36,12 @@
   --nav-text-muted: #606266;
   --nav-accent: #409eff;
 
-  /* ---- 装修层：背景、阴影、尺寸（2026-10-02 精修）---- */
-  /* 页面背景：点阵纹理 + 两层光斑，做出"顶光 + 技术感网格"的层次。
-     为什么要点阵（网格纹理）：
-       纯白背景太"平"，视觉上单调；点阵是最轻的"纹理"——
-       一个 24×24 的 SVG 平铺整个页面，总共不到 200 字节（不是一张图片文件）。
-       data:image/svg+xml,... 是把 SVG 直接写进 CSS 的写法，不产生额外请求。
-       注意：# 号在 url() 里必须写成 %23，否则整个 url 会解析失败。 */
+  /* ---- 装修层：背景、阴影、尺寸 ---- */
+  /* 背景层整体停用（原"点阵+光斑"已换成纯黑+代码雨）；
+     想恢复旧背景，把下面改回：
+     radial-gradient(...) 光斑两层 + var(--bg-grid)，并还原 --bg-page */
   --bg-grid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='1.5' cy='1.5' r='1.2' fill='%233a6fd8' fill-opacity='0.12'/%3E%3C/svg%3E");
-  --page-bg-layer:
-    radial-gradient(1100px 520px at 50% -140px, #dfeeff 0%, rgba(255, 255, 255, 0) 70%),
-    radial-gradient(820px 460px at 100% -60px, #f0e6fc 0%, rgba(255, 255, 255, 0) 60%),
-    var(--bg-grid);
+  --page-bg-layer: none;
   --nav-bg-glass: rgba(255, 255, 255, 0.82); /* 半透明导航底色 + 毛玻璃 */
   --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   --card-shadow-hover: 0 10px 26px rgba(0, 0, 0, 0.1);

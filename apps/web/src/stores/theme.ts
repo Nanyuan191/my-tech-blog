@@ -7,11 +7,21 @@ export type ThemeMode = 'light' | 'dark';
 const STORAGE_KEY = 'blog-theme';
 
 /**
+ * 深色模式总开关（2026-10-03 暂时下线）
+ * 设为 false 后：强制浅色、toggle() 失效 —— 配合导航栏里已注释的切换按钮。
+ * 注意必须和 index.html 里防闪白脚本的 DARK_MODE_ENABLED 保持一致，
+ * 否则深色系统的访客会先闪一下深色再被掰回浅色。
+ */
+const DARK_MODE_ENABLED = false;
+
+/**
  * 读取初始主题：
  *   1. 用户上次手动选过 → 用他的选择
  *   2. 没选过 → 跟随操作系统（Windows/macOS 的深色设置）
  */
 function readInitialMode(): ThemeMode {
+  if (!DARK_MODE_ENABLED) return 'light';
+
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved === 'light' || saved === 'dark') return saved;
 
@@ -39,8 +49,9 @@ export const useThemeStore = defineStore('theme', () => {
     }
   }
 
-  /** 浅色 ⇄ 深色 */
+  /** 浅色 ⇄ 深色（深色模式暂时下线：开关关闭时此函数不做事） */
   function toggle() {
+    if (!DARK_MODE_ENABLED) return;
     mode.value = mode.value === 'dark' ? 'light' : 'dark';
   }
 

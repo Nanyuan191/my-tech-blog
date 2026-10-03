@@ -1,5 +1,12 @@
 <template>
   <div class="app">
+    <!--
+      全站背景动效：二进制代码雨。
+      ★ 只在首页和 /notes 特殊页下雨（船长要求：进文章页要干净的黑底），
+        用路由判断控制挂载，切到其他页面组件直接卸载、动画停止。
+    -->
+    <BinaryRain v-if="showRain" />
+
     <!-- 顶部阅读进度条：宽度 = 当前阅读百分比（JS 里算） -->
     <div class="progress" :style="{ width: progress + '%' }"></div>
 
@@ -28,7 +35,8 @@
             stroke-linejoin="round"
           />
         </svg>
-        我的技术博客
+        记忆轮回之所
+         
       </router-link>
 
       <nav class="links">
@@ -42,10 +50,13 @@
         <!--
           深色 / 浅色切换：点一下只是给 <html> 加或删一个 class，
           全站颜色（含 Element Plus 组件）跟着变，不用刷新页面。
+          ★ 2026-10-03 暂时下线（船长决定）：按钮注释掉即可恢复入口；
+            同时 stores/theme.ts 里 DARK_MODE_ENABLED 已设为 false（强制浅色，
+            否则深色系统的访客会进一个"没有开关的深色站"）。
         -->
-        <button class="btn ghost" @click="theme.toggle()">
+        <!-- <button class="btn ghost" @click="theme.toggle()">
           {{ theme.mode === 'dark' ? '浅色' : '深色' }}
-        </button>
+        </button> -->
         <template v-if="auth.isLoggedIn()">
           <span class="who">{{ auth.user?.nickname || auth.user?.username || '已登录' }}</span>
           <button class="btn ghost" @click="handleLogout">退出</button>
@@ -75,10 +86,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import { useThemeStore } from '@/stores/theme';
+import BinaryRain from '@/components/BinaryRain.vue';
+// 深色模式暂时下线（2026-10-03），恢复时：取消下面这行 + 模板里的按钮注释，
+// 并把 stores/theme.ts 的 DARK_MODE_ENABLED 改回 true
+// import { useThemeStore } from '@/stores/theme';
 
 /**
  * 本文件要点（答辩可能被问到）：
@@ -89,8 +103,12 @@ import { useThemeStore } from '@/stores/theme';
  *    这是 SPA 的典型布局方式。
  */
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
-const theme = useThemeStore();
+// const theme = useThemeStore(); // 深色模式暂时下线，见上方说明
+
+/** 代码雨只在首页和 /notes 特殊页显示；路由一变，computed 自动重新判断 */
+const showRain = computed(() => route.path === '/' || route.path === '/notes');
 
 /** 退出登录：清后端 Cookie + 清本地内存里的 token，然后跳回首页 */
 async function handleLogout() {
@@ -129,6 +147,17 @@ onUnmounted(() => window.removeEventListener('scroll', onScroll));
 </script>
 
 <style scoped>
+/*
+ * 外壳层叠上下文（配合 BinaryRain）：
+ * body 自己有白底，如果直接让画布 z-index:-1，它会沉到 body 白底之下=完全看不见。
+ * 给 .app 加 position+z-index:0 建立独立层叠上下文后，
+ * 画布的 -1 只在 .app 内部"垫底"：body 背景 < 代码雨 < 页面内容。
+ */
+.app {
+  position: relative;
+  z-index: 0;
+}
+
 /* ---- 阅读进度条：贴在最顶端的一条细线 ---- */
 .progress {
   position: fixed;
