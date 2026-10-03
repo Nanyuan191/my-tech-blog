@@ -155,12 +155,12 @@ onMounted(async () => {
   align-items: flex-start;
   gap: 22px;
   padding: 20px;
-  /* 卡片去死白：不用任何图片 —— 左上角一层极淡主题蓝晕（呼应代码雨/全站 accent），
-     底色白 → 极浅冷灰蓝斜向过渡，给卡片"光照感"；渐变无细节、无明暗斑块，
-     对标题/摘要文字零干扰（最暗处 #f2f5f9 与 #555 对比度约 6:1，超 AA） */
+  /* 卡片去死白：不用任何图片 —— 左上角一层明显可感的主题蓝晕（呼应代码雨/全站 accent），
+     底色白 → 浅冷灰蓝斜向过渡，给卡片"光照感"；渐变无细节、无明暗斑块，
+     对标题/摘要文字零干扰（最暗处 #e8edf3 与 #555 对比度约 5.6:1，超 AA） */
   background:
-    radial-gradient(130% 150% at 0% 0%, rgba(64, 158, 255, 0.07) 0%, rgba(64, 158, 255, 0) 55%),
-    linear-gradient(150deg, #ffffff 0%, #f8fafd 52%, #f2f5f9 100%);
+    radial-gradient(120% 140% at 0% 0%, rgba(64, 158, 255, 0.16) 0%, rgba(64, 158, 255, 0) 58%),
+    linear-gradient(150deg, #ffffff 0%, #f4f7fa 48%, #e8edf3 100%);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   box-shadow: var(--card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
