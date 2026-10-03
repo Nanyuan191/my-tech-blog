@@ -33,7 +33,7 @@
           <img
             v-if="item.coverImage"
             class="thumb-img"
-            :src="item.coverImage"
+            :src="resolveCover(item.coverImage)"
             :alt="item.title"
             loading="lazy"
           />
@@ -65,6 +65,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { fetchArticles, type Article } from '@/api/article';
+// 封面解析：数据库里存的是 "cover:scifi" 这类标识，这里翻译成真实图片地址
+import { resolveCover } from '@/utils/covers';
 
 // ⭐ 三个状态：数据 / 加载中 / 错误
 //    这是调接口的标准套路，后面每个页面都这么写

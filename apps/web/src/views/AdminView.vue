@@ -147,23 +147,57 @@
           </div>
         </el-form-item>
 
-        <!-- 封面图：直接填图片外链 URL，首页卡片有图显示图、没图走渐变兜底 -->
+        <!--
+          封面图：预设素材库（点缩略图即选）+ 自定义外链兜底
+          数据库里存的是 "cover:scifi" 这类短标识，首页读的时候翻译成真实图片地址，
+          详见 src/utils/covers.ts 顶部注释
+        -->
         <el-form-item label="封面图">
-          <div class="cover-row">
-            <el-input
-              v-model="form.coverImage"
-              placeholder="图片外链 URL（选填）。留空则首页卡片使用默认渐变色块"
-              clearable
-              @input="coverBroken = false"
-            />
-            <!-- 输入后立刻预览；URL 打不开（@error）就自动隐藏，避免裂图 -->
-            <img
-              v-if="form.coverImage && !coverBroken"
-              :src="form.coverImage"
-              class="cover-preview"
-              alt="封面预览"
-              @error="coverBroken = true"
-            />
+          <div class="cover-picker">
+            <div class="cover-grid">
+              <button
+                v-for="p in COVER_PRESETS"
+                :key="p.key"
+                type="button"
+                class="cover-opt"
+                :class="{ active: form.coverImage === p.key }"
+                :title="`使用「${p.label}」封面`"
+                @click="pickPresetCover(p.key)"
+              >
+                <img :src="p.url" :alt="p.label" />
+                <span>{{ p.label }}</span>
+              </button>
+
+              <!-- 不使用封面：首页卡片走渐变色兜底 -->
+              <button
+                type="button"
+                class="cover-opt cover-none"
+                :class="{ active: !form.coverImage }"
+                title="不使用封面图"
+                @click="pickPresetCover('')"
+              >
+                <span class="none-mark">⊘</span>
+                <span>不使用</span>
+              </button>
+            </div>
+
+            <div class="cover-row">
+              <el-input
+                v-model="form.coverImage"
+                placeholder="也可以粘贴自定义图片外链 URL（http:// 或 https://）"
+                clearable
+                @input="coverBroken = false"
+              />
+              <!-- 自定义外链才需要预览；预设图已在上方高亮，无需重复 -->
+              <img
+                v-if="form.coverImage && !isPresetCover(form.coverImage) && !coverBroken"
+                :src="form.coverImage"
+                class="cover-preview"
+                alt="封面预览"
+                @error="coverBroken = true"
+              />
+            </div>
+            <p class="cover-tip">预设图不依赖外部图床，永不失效；留空则首页卡片使用渐变色块。</p>
           </div>
         </el-form-item>
 
@@ -220,6 +254,8 @@ import {
   type AdminComment,
   type CommentStatus,
 } from '@/api/comment';
+// 封面图素材库：预设选项（点选即用）+ isPresetCover 用于区分"预设标识"和"自定义外链"
+import { COVER_PRESETS, isPresetCover } from '@/utils/covers';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -249,6 +285,15 @@ const form = reactive({
 
 // 封面图 URL 打不开时置 true → 预览图自动隐藏（防裂图）
 const coverBroken = ref(false);
+
+/**
+ * 选择封面：传入预设 key（如 'cover:scifi'）或空串（不使用封面）。
+ * 直接覆盖 form.coverImage —— 预设和自定义外链共用一个字段，二选一。
+ */
+function pickPresetCover(key: string) {
+  form.coverImage = key;
+  coverBroken.value = false; // 换图时重置裂图标记，否则上次的失败状态会残留
+}
 
 // ---- 评论审核 ----
 const commentList = ref<AdminComment[]>([]);
@@ -529,7 +574,71 @@ onMounted(async () => {
 .tax-row .el-select {
   flex: 1;
 }
-/* 封面图输入 + 预览：预览固定 120x68（16:9 缩略），URL 加载失败自动隐藏 */
+/* ---- 封面图：预设缩略图选择器 ---- */
+.cover-picker {
+  width: 100%;
+}
+/* 缩略图网格：自动换行，每张固定 108px 宽 */
+.cover-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+/* 单个选项：图片 + 名字，选中时描边高亮 */
+.cover-opt {
+  width: 108px;
+  padding: 0;
+  border: 2px solid #e3e6eb;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  font-family: inherit;
+  line-height: 1;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.cover-opt:hover {
+  border-color: #c3cad3;
+}
+.cover-opt.active {
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+.cover-opt img {
+  display: block;
+  width: 100%;
+  height: 60px;
+  object-fit: cover;
+}
+.cover-opt span {
+  display: block;
+  padding: 5px 0 6px;
+  font-size: 12px;
+  color: var(--text-main);
+  text-align: center;
+}
+/* 「不使用」选项：虚线框 + 灰字，跟真图选项区分开 */
+.cover-opt.cover-none {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 85px;
+  border-style: dashed;
+  color: var(--text-muted);
+}
+.cover-opt.cover-none .none-mark {
+  font-size: 20px;
+  padding: 0 0 4px;
+  color: inherit;
+}
+.cover-tip {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+/* 自定义外链输入 + 预览：预览固定 120x68（16:9 缩略），URL 加载失败自动隐藏 */
 .cover-row {
   display: flex;
   align-items: center;
