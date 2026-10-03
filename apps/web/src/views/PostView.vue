@@ -1,8 +1,9 @@
 <template>
+  <!-- 背景层必须放在 .post 外面（兄弟节点）：
+       卡片用了 backdrop-filter（毛玻璃），它会把父元素变成 fixed 后代的包含块，
+       背景层若在卡片内部，position:fixed 就会失效、被裁剪进卡片范围 -->
+  <div class="post-bg" aria-hidden="true"></div>
   <div class="post">
-    <!-- 文章页背景图：fixed 铺满视口、负层级垫底（白卡片之下、黑色页面底色之上），
-         上面压一层 45% 黑遮罩 —— 图片只是"氛围"，不能干扰正文阅读 -->
-    <div class="post-bg" aria-hidden="true"></div>
     <p v-if="loading">加载中...</p>
     <p v-else-if="error" class="error">{{ error }}</p>
 
@@ -421,7 +422,12 @@ watch(
      黑底部分留给船长后续铺静态背景图 */
   margin: 34px auto 56px;
   padding: 34px 36px 48px;
-  background: var(--bg-card);
+  /* 毛玻璃白盒：白色半透明 + backdrop-filter 虚化，
+     背景图（.post-bg）透过卡片变成朦胧色块，正文依然可读。
+     不透明度 0.82 是可读性和透出感的平衡点，嫌"糊得不够"就往下调（最低别低于 0.7） */
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
   border: 1px solid var(--border-soft);
   border-radius: 14px;
   box-shadow: var(--card-shadow, 0 1px 2px rgba(0, 0, 0, 0.04));
