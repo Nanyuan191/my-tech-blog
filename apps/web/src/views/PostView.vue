@@ -698,12 +698,18 @@ watch(
   font-family: inherit;
   font-size: 14px;
   color: var(--text-main);
-  background: var(--bg-page);
-  border: 1px solid var(--border-soft);
+  /* 评论表单在白色毛玻璃卡片内，输入控件必须白底深字：
+     不能引用 --bg-page（黑底改版后是纯黑，深色文字会看不见） */
+  background: #ffffff;
+  border: 1px solid #d8dde3;
   border-radius: 8px;
   padding: 9px 12px;
   outline: none;
   transition: border-color 0.2s;
+}
+.c-ipt::placeholder,
+.c-ta::placeholder {
+  color: #9aa3ad;
 }
 .c-ipt:focus,
 .c-ta:focus {
